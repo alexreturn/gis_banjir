@@ -8,7 +8,10 @@ import {
   useJsApiLoader,
   Autocomplete,
   Polyline,
+  InfoWindow,
 } from "@react-google-maps/api";
+
+import Header from "./Header";
 
 type GMap = google.maps.Map | null;
 
@@ -101,7 +104,22 @@ export default function EvakuasiGIS() {
 
   const [routes, setRoutes] = useState<OrsRoute[]>([]);
   const [activeRoute, setActiveRoute] = useState(0);
+  const [hoveredFlood, setHoveredFlood] = useState<any>(null);
 
+  const [weather, setWeather] = useState<any>(null);
+
+  const fetchWeather = async (lat: number, lon: number) => {
+    try {
+      const res = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=id&appid=${process.env.NEXT_PUBLIC_OPENWEATHER_KEY}`,
+      );
+
+      const data = await res.json();
+      setWeather(data);
+    } catch (err) {
+      console.error("Gagal ambil cuaca:", err);
+    }
+  };
   const onStartPlaceChanged = () => {
     if (!startAuto) return;
     const place = startAuto.getPlace();
@@ -200,6 +218,12 @@ export default function EvakuasiGIS() {
   }
 
   useEffect(() => {
+    if (center) {
+      fetchWeather(center.lat, center.lng);
+    }
+  }, [center]);
+
+  useEffect(() => {
     if (!calculate || !start || !end || !floodAreas.length) return;
 
     fetchORSRoute(start, end, floodAreas)
@@ -223,32 +247,12 @@ export default function EvakuasiGIS() {
 
   return (
     <div style={{ width: "100%", height: "100vh", position: "relative" }}>
-      {/* Header */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: 60,
-          background: "#2563eb",
-          color: "white",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 20,
-          fontWeight: "bold",
-          zIndex: 20,
-          boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
-        }}
-      >
-        Sistem Evakuasi Banjir
-      </div>
+      <Header />
       {/* Sidebar untuk rute */}
       <div
         style={{
           position: "absolute",
-          top: 100,
+          top: 150,
           left: 12,
           zIndex: 10,
           background: "white",
@@ -258,7 +262,7 @@ export default function EvakuasiGIS() {
           width: 300,
         }}
       >
-        <strong style={{ color: "black" }}>Rute Evakuasi Aman</strong>
+        <strong style={{ color: "black" }}>Rute Alternatif Aman</strong>
 
         <div style={{ position: "relative", marginTop: 8 }}>
           <Autocomplete
@@ -306,7 +310,7 @@ export default function EvakuasiGIS() {
         >
           <input
             type="text"
-            placeholder="Tujuan evakuasi"
+            placeholder="Tujuan"
             style={{ width: "100%", marginTop: 8, padding: 6, color: "black" }}
           />
         </Autocomplete>
@@ -364,10 +368,56 @@ export default function EvakuasiGIS() {
         )}
       </div>
 
+      {/* Weather Info Panel */}
+      {/* Weather Panel */}
+      {weather && (
+        <div className="absolute top-24 right-6 z-20 w-72 backdrop-blur-lg bg-white/80 border border-white/40 rounded-2xl shadow-xl p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800">
+                Perkiraan Cuaca
+              </h2>
+              <p className="text-sm text-gray-500">{weather.name}</p>
+            </div>
+            <img
+              src={`https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`}
+              alt="icon"
+              className="w-14 h-14"
+            />
+          </div>
+
+          <div className="mt-4 space-y-3 text-gray-700">
+            <div className="flex justify-between">
+              <span>🌥 Kondisi</span>
+              <span className="font-semibold capitalize">
+                {weather.weather[0].description}
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span>🌡 Temperatur</span>
+              <span className="font-semibold">
+                {Math.round(weather.main.temp)}°C
+              </span>
+            </div>
+
+            <div className="flex justify-between">
+              <span>💧 Kelembaban</span>
+              <span className="font-semibold">{weather.main.humidity}%</span>
+            </div>
+
+            <div className="flex justify-between">
+              <span>🌬 Kecepatan Angin</span>
+              <span className="font-semibold">{weather.wind.speed} m/s</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <GoogleMap
         center={center}
         zoom={12}
-        mapContainerStyle={{ width: "100%", height: "100%" }}
+        mapContainerStyle={{ width: "100%", height: "90%" }}
         onLoad={setMap}
       >
         {routes.map((r, i) => (
@@ -392,8 +442,21 @@ export default function EvakuasiGIS() {
               fillOpacity: 0.25,
               strokeColor: "#b91c1c",
             }}
+            onMouseOver={() => setHoveredFlood(f)}
+            onMouseOut={() => setHoveredFlood(null)}
           />
         ))}
+        {hoveredFlood && (
+          <InfoWindow
+            position={{ lat: hoveredFlood.lat, lng: hoveredFlood.lng }}
+            options={{ disableAutoPan: true, headerDisabled: true }}
+          >
+            <div style={{ color: "black" }}>
+              <strong>{hoveredFlood.name}</strong>
+              <div>Radius: {hoveredFlood.radius} m</div>
+            </div>
+          </InfoWindow>
+        )}
 
         {start && <Marker position={start} label="A" />}
         {end && <Marker position={end} label="B" />}

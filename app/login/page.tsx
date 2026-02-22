@@ -45,7 +45,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 text-gray-800">
           <input
             type="text"
             placeholder="Username"
