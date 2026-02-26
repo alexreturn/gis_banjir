@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const [rows]: any = await db.query(
-    "SELECT id, name, lat, lng, radius FROM flood_areas",
+    "SELECT id, name, lat, lng, radius FROM tb_data_banjir",
   );
 
   const fixed = rows.map((r: any) => ({
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     }
 
     const [result] = await db.query(
-      "INSERT INTO flood_areas (name, lat, lng, radius) VALUES (?, ?, ?, ?)",
+      "INSERT INTO tb_data_banjir (name, lat, lng, radius) VALUES (?, ?, ?, ?)",
       [name, lat, lng, radius],
     );
 
@@ -47,7 +47,7 @@ export async function DELETE(request: Request) {
     if (!id)
       return NextResponse.json({ error: "ID wajib diisi" }, { status: 400 });
 
-    await db.query("DELETE FROM flood_areas WHERE id = ?", [id]);
+    await db.query("DELETE FROM tb_data_banjir WHERE id = ?", [id]);
     return NextResponse.json({ success: true });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
@@ -66,7 +66,7 @@ export async function PUT(request: Request) {
     }
 
     await db.query(
-      "UPDATE flood_areas SET name = ?, lat = ?, lng = ?, radius = ? WHERE id = ?",
+      "UPDATE tb_data_banjir SET name = ?, lat = ?, lng = ?, radius = ? WHERE id = ?",
       [name, lat, lng, radius, id],
     );
 

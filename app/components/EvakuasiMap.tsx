@@ -29,15 +29,20 @@ type OrsRoute = {
   duration: number; // detik
 };
 
+type Props = {
+  routeLogId: number | null;
+};
+
 const LIBRARIES = ["geometry", "visualization", "places"] as const;
 const center = { lat: -8.65, lng: 115.22 };
 
-export default function EvakuasiGIS() {
+export default function EvakuasiGIS({ routeLogId }: Props) {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
     libraries: LIBRARIES,
   });
 
+  const routeColors = ["#2563eb", "#16a34a", "#f97316"];
   const [orsPath, setOrsPath] = useState<google.maps.LatLngLiteral[]>([]);
   const [floodAreas, setFloodAreas] = useState<FloodArea[]>([]);
   const [map, setMap] = useState<GMap>(null);
@@ -102,11 +107,83 @@ export default function EvakuasiGIS() {
     useState<google.maps.places.Autocomplete | null>(null);
   const [calculate, setCalculate] = useState(false);
 
-  const [routes, setRoutes] = useState<OrsRoute[]>([]);
+  // const [routes, setRoutes] = useState<OrsRoute[]>([]);
+  const [routes, setRoutes] = useState<any[]>([]);
   const [activeRoute, setActiveRoute] = useState(0);
   const [hoveredFlood, setHoveredFlood] = useState<any>(null);
 
   const [weather, setWeather] = useState<any>(null);
+  const [routeHistory, setRouteHistory] = useState<any[]>([]);
+
+  const [userName, setUserName] = useState("");
+
+  const [comments, setComments] = useState<any[]>([]);
+  const [comment, setComment] = useState("");
+  const [rating, setRating] = useState(5);
+  const [loading, setLoading] = useState(false);
+
+  const fetchComments = async (floodId: number) => {
+    try {
+      const res = await fetch(`/api/route-comments?flood_id=${floodId}`);
+
+      const result = await res.json();
+
+      if (result.success) {
+        setComments(result.data);
+      } else {
+        setComments([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setComments([]);
+    }
+  };
+  // Kirim komentar
+  const handleSubmit = async () => {
+    if (!comment.trim()) {
+      alert("Komentar wajib diisi");
+      return;
+    }
+
+    if (!hoveredFlood?.id) {
+      alert("Data banjir tidak ditemukan");
+      return;
+    }
+
+    setLoading(true);
+
+    const res = await fetch("/api/route-comments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        route_log_id: hoveredFlood.id,
+        user_name: "userName", // ✅ variable, bukan string
+        comment,
+        is_admin: false,
+      }),
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
+      setComment("");
+      // fetchComments();
+    } else {
+      alert(result.error);
+    }
+
+    setLoading(false);
+  };
+
+  // if (!routeLogId) {
+  //   return (
+  //     <div style={{ marginTop: 10, fontSize: 12 }}>
+  //       Pilih history rute untuk melihat komentar
+  //     </div>
+  //   );
+  // }
 
   const fetchWeather = async (lat: number, lon: number) => {
     try {
@@ -165,6 +242,102 @@ export default function EvakuasiGIS() {
     return coords;
   }
 
+  function getDistanceFromLatLonInMeters(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ) {
+    const R = 6371000; // radius bumi dalam meter
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) *
+        Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c;
+
+    return d; // meter
+  }
+
+  function deg2rad(deg: number) {
+    return deg * (Math.PI / 180);
+  }
+
+  function calculateSAW(routes: any[], floods: FloodArea[]) {
+    // 1️⃣ Ekstrak nilai mentah
+    const alternatives = routes.map((r, index) => {
+      const distance = r.properties.summary.distance; // meter
+      const duration = r.properties.summary.duration; // detik
+
+      // Hitung risiko banjir (contoh sederhana: jumlah flood point dekat route)
+      const floodRisk = countFloodRisk(r.geometry.coordinates, floods);
+
+      return {
+        index,
+        distance,
+        duration,
+        floodRisk,
+      };
+    });
+
+    // 2️⃣ Cari nilai minimum (karena cost)
+    const minDistance = Math.min(...alternatives.map((a) => a.distance));
+    const minDuration = Math.min(...alternatives.map((a) => a.duration));
+    const minFloodRisk = Math.min(...alternatives.map((a) => a.floodRisk));
+
+    // 3️⃣ Normalisasi + Hitung skor SAW
+    const weights = {
+      distance: 0.4,
+      duration: 0.3,
+      floodRisk: 0.3,
+    };
+
+    const ranked = alternatives.map((a) => {
+      const rDistance = minDistance / a.distance;
+      const rDuration = minDuration / a.duration;
+      const rFlood = minFloodRisk === 0 ? 1 : minFloodRisk / a.floodRisk;
+
+      const score =
+        rDistance * weights.distance +
+        rDuration * weights.duration +
+        rFlood * weights.floodRisk;
+
+      return {
+        ...a,
+        score,
+      };
+    });
+
+    // 4️⃣ Urutkan skor terbesar
+    ranked.sort((a, b) => b.score - a.score);
+
+    return ranked;
+  }
+
+  function countFloodRisk(routeCoords: number[][], floods: FloodArea[]) {
+    let risk = 0;
+
+    routeCoords.forEach((coord) => {
+      const [lng, lat] = coord;
+
+      floods.forEach((f) => {
+        const distance = getDistanceFromLatLonInMeters(lat, lng, f.lat, f.lng);
+
+        if (distance < f.radius) {
+          risk += 1;
+        }
+      });
+    });
+
+    return risk;
+  }
+
   async function fetchORSRoute(
     start: LatLng,
     end: LatLng,
@@ -204,6 +377,7 @@ export default function EvakuasiGIS() {
 
     return res.json();
   }
+
   function formatDistance(meter: number) {
     return meter >= 1000
       ? (meter / 1000).toFixed(2) + " km"
@@ -223,11 +397,105 @@ export default function EvakuasiGIS() {
     }
   }, [center]);
 
-  useEffect(() => {
+  const getSessionId = () => {
+    let sessionId = sessionStorage.getItem("evakuasi_session");
+
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      sessionStorage.setItem("evakuasi_session", sessionId);
+    }
+
+    return sessionId;
+  };
+
+  const findNamePlaceStart = () => {
+    if (!startAuto) return "";
+    const place = startAuto.getPlace();
+    return place?.name || place?.formatted_address || "";
+  };
+
+  const findNamePlaceEnd = () => {
+    if (!endAuto) return "";
+    const place = endAuto.getPlace();
+    return place?.name || place?.formatted_address || "";
+  };
+
+  const fetchHistory = async () => {
+    const sessionId = getSessionId();
+    const res = await fetch(`/api/route-logs?session_id=${sessionId}`);
+    const data = await res.json();
+    setRouteHistory(data);
+  };
+
+  const insertRouteLog = async (route: any, index: number) => {
+    if (!start || !end) return;
+
+    try {
+      const startName = findNamePlaceStart();
+      const endName = findNamePlaceEnd();
+
+      const res = await fetch("/api/route-logs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session_id: getSessionId(),
+          start_address: startName,
+          start_lat: start.lat,
+          start_lng: start.lng,
+          end_address: endName,
+          end_lat: end.lat,
+          end_lng: end.lng,
+          distance_km: route.distance / 1000,
+          duration_min: route.duration / 60,
+          selected_route_index: index,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Gagal simpan log");
+
+      // Refresh history setelah insert
+      fetchHistory();
+    } catch (err) {
+      console.error("Insert route error:", err);
+    }
+  };
+
+  async function checkroute() {
     if (!calculate || !start || !end || !floodAreas.length) return;
 
-    fetchORSRoute(start, end, floodAreas)
-      .then((data) => {
+    // setRanking([]);
+    const data = await fetchORSRoute(start, end, floodAreas);
+    const routes = data.features;
+    const ranking = calculateSAW(routes, floodAreas);
+    console.log("Ranking SAW:", ranking);
+    // Route terbaik
+    const bestRouteIndex = ranking[0].index;
+    // setRoutes();
+    setActiveRoute(bestRouteIndex);
+  }
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  useEffect(() => {
+    setRoutes([]);
+    setActiveRoute(null);
+  }, [start, end]);
+
+  useEffect(() => {
+    if (!calculate || !start || !end) return;
+
+    let isCancelled = false;
+
+    async function loadRoute() {
+      try {
+        const data = await fetchORSRoute(start, end, floodAreas);
+
+        if (isCancelled) return;
+
         const parsedRoutes: OrsRoute[] = data.features.map((feature: any) => ({
           path: feature.geometry.coordinates.map((c: number[]) => ({
             lng: c[0],
@@ -238,11 +506,17 @@ export default function EvakuasiGIS() {
         }));
 
         setRoutes(parsedRoutes);
-        setActiveRoute(0);
-      })
-      .catch(console.error);
-  }, [calculate, start, end, floodAreas]);
+      } catch (err) {
+        console.error(err);
+      }
+    }
 
+    loadRoute();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [calculate]);
   if (!isLoaded) return <div>Loading map...</div>;
 
   return (
@@ -341,7 +615,12 @@ export default function EvakuasiGIS() {
             {routes.map((r, i) => (
               <button
                 key={i}
-                onClick={() => setActiveRoute(i)}
+                onClick={async () => {
+                  setActiveRoute(i);
+                  // fetchComments();
+
+                  await insertRouteLog(r, i);
+                }}
                 style={{
                   marginTop: 6,
                   width: "100%",
@@ -362,6 +641,47 @@ export default function EvakuasiGIS() {
                   </strong>
                 </div>
                 <div style={{ color: "black" }}></div>
+              </button>
+            ))}
+          </div>
+        )}
+        {/* History Rute */}
+        {routeHistory.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <strong style={{ color: "black" }}>Riwayat Rute:</strong>
+
+            {routeHistory.slice(0, 5).map((h) => (
+              <button
+                key={h.id}
+                onClick={() => {
+                  // set ulang start & end
+                  setStart({ lat: h.start_lat, lng: h.start_lng });
+                  setEnd({ lat: h.end_lat, lng: h.end_lng });
+
+                  // trigger hitung ulang rute
+                  setActiveRoute(h.selected_route_index || 0);
+                  setCalculate(true);
+                }}
+                style={{
+                  marginTop: 6,
+                  width: "100%",
+                  padding: 8,
+                  borderRadius: 6,
+                  border: "1px solid #e5e7eb",
+                  background: "#f8fafc",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontSize: 12,
+                  color: "black",
+                }}
+              >
+                <div>
+                  📍 {h.start_address} → {h.end_address}
+                </div>
+                <div style={{ fontSize: 11, color: "#475569" }}>
+                  📏 {h.distance_km?.toFixed(2)} km | ⏱{" "}
+                  {Math.round(h.duration_min)} menit
+                </div>
               </button>
             ))}
           </div>
@@ -425,9 +745,10 @@ export default function EvakuasiGIS() {
             key={i}
             path={r.path}
             options={{
-              strokeColor: i === activeRoute ? "#2563eb" : "#94a3b8",
-              strokeWeight: i === activeRoute ? 6 : 4,
-              strokeOpacity: i === activeRoute ? 1 : 0.5,
+              strokeColor: routeColors[i % routeColors.length],
+              strokeWeight: i === activeRoute ? 7 : 4,
+              strokeOpacity: i === activeRoute ? 1 : 0.6,
+              zIndex: i === activeRoute ? 999 : 1,
             }}
           />
         ))}
@@ -442,7 +763,10 @@ export default function EvakuasiGIS() {
               fillOpacity: 0.25,
               strokeColor: "#b91c1c",
             }}
-            onMouseOver={() => setHoveredFlood(f)}
+            onMouseOver={async () => {
+              setHoveredFlood(f);
+              await fetchComments(f.id);
+            }}
             onMouseOut={() => setHoveredFlood(null)}
           />
         ))}
@@ -454,6 +778,76 @@ export default function EvakuasiGIS() {
             <div style={{ color: "black" }}>
               <strong>{hoveredFlood.name}</strong>
               <div>Radius: {hoveredFlood.radius} m</div>
+              {/* List Komentar */}
+              <br></br>
+              <b>Ulasan</b>
+              <div
+                style={{
+                  marginTop: 8,
+                  maxHeight: 200,
+                  overflowY: "auto",
+                  background: "#f8fafc",
+                  padding: 8,
+                  borderRadius: 8,
+                }}
+              >
+                {comments.length === 0 && (
+                  <div style={{ fontSize: 12, color: "#64748b" }}>
+                    Belum ada komentar
+                  </div>
+                )}
+
+                {comments.map((c) => (
+                  <div
+                    key={c.id}
+                    style={{
+                      background: c.is_admin ? "#eef2ff" : "white",
+                      padding: 8,
+                      borderRadius: 8,
+                      marginBottom: 6,
+                      border: "1px solid #e5e7eb",
+                    }}
+                  >
+                    <div style={{ fontWeight: "bold", fontSize: 12 }}>
+                      {c.user_name} {c.is_admin && "(Admin)"}
+                    </div>
+
+                    <div style={{ fontSize: 12, marginTop: 4 }}>
+                      {c.comment}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <textarea
+                placeholder="Bagikan kondisi jalur..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                style={{
+                  width: "100%",
+                  marginTop: 6,
+                  padding: 6,
+                  borderRadius: 6,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 12,
+                }}
+              />
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                style={{
+                  marginTop: 8,
+                  width: "100%",
+                  padding: 8,
+                  background: "#2563eb",
+                  color: "white",
+                  borderRadius: 6,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 12,
+                }}
+              >
+                {loading ? "Mengirim..." : "Kirim Komentar"}
+              </button>
             </div>
           </InfoWindow>
         )}

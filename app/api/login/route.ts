@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       );
     }
     const [rows]: any = await db.query(
-      "SELECT id, username, password, nama FROM user WHERE username = ?",
+      "SELECT id, username, password, nama FROM tb_admin WHERE username = ?",
       [username],
     );
 

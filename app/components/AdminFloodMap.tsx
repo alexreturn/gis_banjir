@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { GoogleMap, Circle, useJsApiLoader } from "@react-google-maps/api";
 import FloodDataList from "./FloodDataList";
+import AdminNews from "./adminNews";
 type LatLng = { lat: number; lng: number };
 
 type FloodArea = {
@@ -39,7 +40,7 @@ export default function AdminFloodMap() {
   // Marker khusus untuk add data
   const [newMarker, setNewMarker] = useState<google.maps.Marker | null>(null);
 
-  const [activeMenu, setActiveMenu] = useState<"dashboard" | "data">(
+  const [activeMenu, setActiveMenu] = useState<"dashboard" | "data" | "news">(
     "dashboard",
   );
   useEffect(() => {
@@ -154,6 +155,19 @@ export default function AdminFloodMap() {
             }}
           >
             Data
+          </button>
+          <button
+            onClick={() => setActiveMenu("news")}
+            style={{
+              background: activeMenu === "news" ? "#1d4ed8" : "transparent",
+              color: "white",
+              border: "none",
+              padding: "6px 12px",
+              borderRadius: 4,
+              cursor: "pointer",
+            }}
+          >
+            News
           </button>
         </div>
       </div>
@@ -271,6 +285,7 @@ export default function AdminFloodMap() {
         )}
 
         {activeMenu === "data" && <FloodDataList />}
+        {activeMenu === "news" && <AdminNews />}
       </div>
     </div>
   );
