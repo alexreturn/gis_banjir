@@ -767,7 +767,10 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
               setHoveredFlood(f);
               await fetchComments(f.id);
             }}
-            onMouseOut={() => setHoveredFlood(null)}
+            onMouseOut={async () => {
+              setHoveredFlood(null);
+              setComments([]);
+            }}
           />
         ))}
         {hoveredFlood && (
