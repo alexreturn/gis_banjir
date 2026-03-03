@@ -34,7 +34,15 @@ type Props = {
 };
 
 const LIBRARIES = ["geometry", "visualization", "places"] as const;
-const center = { lat: -8.65, lng: 115.22 };
+
+const center = { lat: -8.65, lng: 115.22 }; // default Bali tengah
+const MAX_SAFE_DEPTH = 40; // cm batas aman untuk dilalui kendaraan
+const weights = {
+  distance: 0.3,
+  duration: 0.2,
+  floodRisk: 0.1,
+  floodDepth: 0.4,
+}; // bobot untuk SAW, total harus 1
 
 export default function EvakuasiGIS({ routeLogId }: Props) {
   const { isLoaded } = useJsApiLoader({
@@ -42,7 +50,7 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
     libraries: LIBRARIES,
   });
 
-  const routeColors = ["#2563eb", "#16a34a", "#f97316"];
+  const routeColors = ["#16a34a", "#e5eb03", "#ff1212"];
   const [orsPath, setOrsPath] = useState<google.maps.LatLngLiteral[]>([]);
   const [floodAreas, setFloodAreas] = useState<FloodArea[]>([]);
   const [map, setMap] = useState<GMap>(null);
@@ -270,58 +278,58 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
   }
 
   function calculateSAW(routes: any[], floods: FloodArea[]) {
-    // 1️⃣ Ekstrak nilai mentah
     const alternatives = routes.map((r, index) => {
-      const distance = r.properties.summary.distance; // meter
-      const duration = r.properties.summary.duration; // detik
+      const distance = r.properties.summary.distance;
+      const duration = r.properties.summary.duration;
 
-      // Hitung risiko banjir (contoh sederhana: jumlah flood point dekat route)
-      const floodRisk = countFloodRisk(r.geometry.coordinates, floods);
+      const floodData = countFloodImpact(r.geometry.coordinates, floods);
 
       return {
         index,
         distance,
         duration,
-        floodRisk,
+        floodRisk: floodData.risk,
+        floodDepth: floodData.totalDepth,
+        blocked: floodData.blocked, // 🔥 baru
       };
     });
 
-    // 2️⃣ Cari nilai minimum (karena cost)
     const minDistance = Math.min(...alternatives.map((a) => a.distance));
     const minDuration = Math.min(...alternatives.map((a) => a.duration));
     const minFloodRisk = Math.min(...alternatives.map((a) => a.floodRisk));
-
-    // 3️⃣ Normalisasi + Hitung skor SAW
-    const weights = {
-      distance: 0.4,
-      duration: 0.3,
-      floodRisk: 0.3,
-    };
+    const minFloodDepth = Math.min(...alternatives.map((a) => a.floodDepth));
 
     const ranked = alternatives.map((a) => {
+      if (a.blocked) {
+        return { ...a, score: 0 }; // ❌ tidak bisa dilalui
+      }
+
       const rDistance = minDistance / a.distance;
       const rDuration = minDuration / a.duration;
-      const rFlood = minFloodRisk === 0 ? 1 : minFloodRisk / a.floodRisk;
+      const rFlood = minFloodRisk === 0 ? 1 : minFloodRisk / (a.floodRisk || 1);
+      const rDepth =
+        minFloodDepth === 0 ? 1 : minFloodDepth / (a.floodDepth || 1);
 
       const score =
         rDistance * weights.distance +
         rDuration * weights.duration +
-        rFlood * weights.floodRisk;
+        rFlood * weights.floodRisk +
+        rDepth * weights.floodDepth;
 
-      return {
-        ...a,
-        score,
-      };
+      return { ...a, score };
     });
 
-    // 4️⃣ Urutkan skor terbesar
+    console.log(ranked);
+
     ranked.sort((a, b) => b.score - a.score);
 
     return ranked;
   }
 
-  function countFloodRisk(routeCoords: number[][], floods: FloodArea[]) {
+  function countFloodImpact(routeCoords: number[][], floods: FloodArea[]) {
     let risk = 0;
+    let totalDepth = 0;
+    let blocked = false;
 
     routeCoords.forEach((coord) => {
       const [lng, lat] = coord;
@@ -331,37 +339,50 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
 
         if (distance < f.radius) {
           risk += 1;
+          totalDepth += Number(f.kedalaman || 0);
+
+          // 🔥 cek apakah terlalu dalam
+          if (Number(f.kedalaman) > MAX_SAFE_DEPTH) {
+            blocked = true;
+          }
         }
       });
     });
 
-    return risk;
+    return { risk, totalDepth, blocked };
   }
 
   async function fetchORSRoute(
     start: LatLng,
     end: LatLng,
     floods: FloodArea[],
+    useAvoid: boolean = false,
   ) {
-    const polygons = floods.map((f) => circleToPolygon(f.lat, f.lng, f.radius));
-
-    const body = {
+    let body: any = {
       coordinates: [
         [start.lng, start.lat],
         [end.lng, end.lat],
       ],
-      options: {
-        avoid_polygons: {
-          type: "MultiPolygon",
-          coordinates: polygons.map((p) => [p]),
-        },
-      },
       alternative_routes: {
         target_count: 3,
         weight_factor: 1.4,
         share_factor: 0.6,
       },
     };
+
+    // 🔥 hanya tambahkan avoid kalau diminta
+    if (useAvoid && floods.length > 0) {
+      const polygons = floods.map((f) =>
+        circleToPolygon(f.lat, f.lng, f.radius),
+      );
+
+      body.options = {
+        avoid_polygons: {
+          type: "MultiPolygon",
+          coordinates: polygons.map((p) => [p]),
+        },
+      };
+    }
 
     const res = await fetch(
       "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
@@ -380,7 +401,7 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
 
   function formatDistance(meter: number) {
     return meter >= 1000
-      ? (meter / 1000).toFixed(2) + " km"
+      ? (meter / 1000).toFixed(1) + " km"
       : Math.round(meter) + " m";
   }
 
@@ -462,18 +483,82 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
     }
   };
 
-  async function checkroute() {
-    if (!calculate || !start || !end || !floodAreas.length) return;
+  function removeDuplicateRoutes(features: any[]) {
+    const unique: any[] = [];
 
-    // setRanking([]);
-    const data = await fetchORSRoute(start, end, floodAreas);
-    const routes = data.features;
-    const ranking = calculateSAW(routes, floodAreas);
-    console.log("Ranking SAW:", ranking);
-    // Route terbaik
-    const bestRouteIndex = ranking[0].index;
-    // setRoutes();
-    setActiveRoute(bestRouteIndex);
+    features.forEach((f) => {
+      const exists = unique.find(
+        (u) =>
+          Math.abs(
+            u.properties.summary.distance - f.properties.summary.distance,
+          ) < 100 &&
+          Math.abs(
+            u.properties.summary.duration - f.properties.summary.duration,
+          ) < 100,
+      );
+
+      if (!exists) unique.push(f);
+    });
+
+    return unique;
+  }
+
+  async function checkroute() {
+    if (!start || !end) return;
+
+    console.log("Ambil route tanpa avoid...");
+    const normalData = await fetchORSRoute(start, end, floodAreas, false);
+
+    console.log("Ambil route dengan avoid...");
+    const avoidData = await fetchORSRoute(start, end, floodAreas, true);
+
+    let combinedFeatures: any[] = [];
+
+    if (normalData?.features?.length) {
+      combinedFeatures = [...normalData.features];
+    }
+
+    if (avoidData?.features?.length) {
+      combinedFeatures = [...combinedFeatures, ...avoidData.features];
+    }
+
+    if (!combinedFeatures.length) {
+      console.log("Tidak ada rute ditemukan sama sekali");
+      return;
+    }
+
+    combinedFeatures = removeDuplicateRoutes(combinedFeatures);
+
+    // 🔥 Hitung SAW dari semua route
+    const ranking = calculateSAW(combinedFeatures, floodAreas);
+
+    // 🔥 Ambil hanya 3 terbaik
+    const topThree = ranking
+      .filter((r) => !r.blocked) // hanya yang bisa dilalui
+      .slice(0, 3);
+
+    if (!topThree.length) {
+      console.log("Semua rute terblokir");
+      return;
+    }
+
+    // 🔥 Convert ke format map
+    const finalRoutes = topThree.map((rank) => {
+      const feature = combinedFeatures[rank.index];
+
+      return {
+        path: feature.geometry.coordinates.map((c: number[]) => ({
+          lng: c[0],
+          lat: c[1],
+        })),
+        distance: feature.properties.summary.distance,
+        duration: feature.properties.summary.duration,
+        score: rank.score,
+      };
+    });
+
+    setRoutes(finalRoutes);
+    setActiveRoute(0); // paling aman
   }
 
   useEffect(() => {
@@ -590,7 +675,9 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
         </Autocomplete>
 
         <button
-          onClick={() => setCalculate(true)}
+          onClick={() => {
+            checkroute();
+          }}
           disabled={!start || !end}
           style={{
             marginTop: 10,
@@ -691,7 +778,7 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
       {/* Weather Info Panel */}
       {/* Weather Panel */}
       {weather && (
-        <div className="absolute top-24 right-6 z-20 w-72 backdrop-blur-lg bg-white/80 border border-white/40 rounded-2xl shadow-xl p-5">
+        <div className="absolute top-54 right-6 z-20 w-72 backdrop-blur-lg bg-white/80 border border-white/40 rounded-2xl shadow-xl p-5">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-800">
@@ -781,6 +868,7 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
             <div style={{ color: "black" }}>
               <strong>{hoveredFlood.name}</strong>
               <div>Radius: {hoveredFlood.radius} m</div>
+              <div>Kedalaman: {hoveredFlood.kedalaman} cm</div>
               {/* List Komentar */}
               <br></br>
               <b>Ulasan</b>

@@ -4,7 +4,9 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const [rows]: any = await db.query(
-    "SELECT id, name, lat, lng, radius FROM tb_data_banjir",
+    `SELECT id, name, lat, lng, radius, kedalaman, status, datetime 
+     FROM tb_data_banjir 
+     WHERE status = '1'`,
   );
 
   const fixed = rows.map((r: any) => ({
@@ -13,6 +15,9 @@ export async function GET() {
     lat: Number(r.lat),
     lng: Number(r.lng),
     radius: Number(r.radius),
+    kedalaman: Number(r.kedalaman), // 🔥 baru
+    status: r.status,
+    datetime: r.datetime,
   }));
 
   return NextResponse.json(fixed);
@@ -20,9 +25,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { name, lat, lng, radius } = await request.json();
+    const { name, lat, lng, radius, kedalaman, user_updated } =
+      await request.json();
 
-    if (!name || !lat || !lng || !radius) {
+    if (!name || !lat || !lng || !radius || kedalaman == null) {
       return NextResponse.json(
         { error: "Semua field wajib diisi" },
         { status: 400 },
@@ -30,11 +36,16 @@ export async function POST(request: Request) {
     }
 
     const [result] = await db.query(
-      "INSERT INTO tb_data_banjir (name, lat, lng, radius) VALUES (?, ?, ?, ?)",
-      [name, lat, lng, radius],
+      `INSERT INTO tb_data_banjir 
+       (name, lat, lng, radius, kedalaman, user_updated, status, datetime) 
+       VALUES (?, ?, ?, ?, ?, ?, 'aktif', NOW())`,
+      [name, lat, lng, radius, kedalaman, user_updated || null],
     );
 
-    return NextResponse.json({ success: true, id: (result as any).insertId });
+    return NextResponse.json({
+      success: true,
+      id: (result as any).insertId,
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
@@ -57,8 +68,10 @@ export async function DELETE(request: Request) {
 // PUT untuk edit
 export async function PUT(request: Request) {
   try {
-    const { id, name, lat, lng, radius } = await request.json();
-    if (!id || !name || !lat || !lng || !radius) {
+    const { id, name, lat, lng, radius, kedalaman, status } =
+      await request.json();
+
+    if (!id || !name || !lat || !lng || !radius || kedalaman == null) {
       return NextResponse.json(
         { error: "Semua field wajib diisi" },
         { status: 400 },
@@ -66,8 +79,16 @@ export async function PUT(request: Request) {
     }
 
     await db.query(
-      "UPDATE tb_data_banjir SET name = ?, lat = ?, lng = ?, radius = ? WHERE id = ?",
-      [name, lat, lng, radius, id],
+      `UPDATE tb_data_banjir 
+       SET name = ?, 
+           lat = ?, 
+           lng = ?, 
+           radius = ?, 
+           kedalaman = ?, 
+           status = ?, 
+           datetime = NOW()
+       WHERE id = ?`,
+      [name, lat, lng, radius, kedalaman, status || "aktif", id],
     );
 
     return NextResponse.json({ success: true });

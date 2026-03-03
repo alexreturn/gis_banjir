@@ -22,6 +22,12 @@ export default function Header() {
           </Link>
 
           <Link
+            href="/dataView"
+            className="px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            Data
+          </Link>
+          <Link
             href="/information"
             className="px-4 py-2 rounded-lg hover:bg-blue-700 transition"
           >
