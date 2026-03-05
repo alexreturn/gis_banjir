@@ -23,10 +23,35 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="id">
+      <head>
+        {/* Container elemen Google Translate (boleh diletakkan di body juga) */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              function googleTranslateElementInit() {
+                new google.translate.TranslateElement(
+                  {
+                    pageLanguage: 'id',
+                    autoDisplay: false,
+                    includedLanguages: 'id,en', // batasi sesuai pilihan dropdown
+                    layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+                  },
+                  'google_translate_element'
+                );
+              }
+            `,
+          }}
+        />
+        <script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" />
+      </head>
+
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Elemen ini tidak harus terlihat; bisa kamu sembunyikan */}
+        <div id="google_translate_element" style={{ display: "none" }} />
+
         {children}
       </body>
     </html>

@@ -75,41 +75,57 @@ export default function AdminNewsPage() {
     }
   };
 
-  // =============================
   // DELETE
-  // =============================
   const handleDelete = async (id: number) => {
     if (!confirm("Hapus berita ini?")) return;
 
-    const res = await fetch("/api/news", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
+    try {
+      const res = await fetch("/api/news", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
 
-    const data = await res.json();
-    if (data.success) fetchNews();
-    else alert("Gagal hapus: " + data.error);
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert("Gagal hapus: " + (data.error || res.statusText));
+        return;
+      }
+
+      fetchNews();
+    } catch (err: any) {
+      alert("Gagal hapus: " + err.message);
+    }
   };
 
-  // =============================
   // UPDATE
-  // =============================
   const handleUpdate = async () => {
     if (!editing) return;
 
-    const res = await fetch("/api/news", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editing),
-    });
+    try {
+      const res = await fetch("/api/news", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editing.id,
+          title: editing.title,
+          content: editing.content,
+          image: editing.image,
+        }),
+      });
 
-    const data = await res.json();
-    if (data.success) {
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert("Gagal update: " + (data.error || res.statusText));
+        return;
+      }
+
       setEditing(null);
       fetchNews();
-    } else {
-      alert("Gagal update: " + data.error);
+    } catch (err: any) {
+      alert("Gagal update: " + err.message);
     }
   };
 

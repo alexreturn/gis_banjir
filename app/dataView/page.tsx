@@ -7,6 +7,7 @@ import Header from "../components/Header";
 type FloodArea = {
   id: number;
   name: string;
+  kedalaman: number;
   lat: number;
   lng: number;
   radius: number;
@@ -61,6 +62,7 @@ function FloodDataList() {
         height: "100vh",
         position: "relative",
         color: "white",
+        backgroundColor: "white",
       }}
     >
       <Header />
@@ -76,6 +78,7 @@ function FloodDataList() {
                 <th className="px-4 py-2">Latitude</th>
                 <th className="px-4 py-2">Longitude</th>
                 <th className="px-4 py-2">Radius (m)</th>
+                <th className="px-4 py-2">Kedalaman (cm)</th>
               </tr>
             </thead>
 
@@ -155,6 +158,26 @@ function FloodDataList() {
                     ) : (
                       <span className="px-2 py-1 bg-red-100 text-red-600 rounded-lg text-sm">
                         {f.radius} m
+                      </span>
+                    )}
+                  </td>
+                  {/* Kedalaman */}
+                  <td className="px-4 py-3 text-gray-600">
+                    {editing?.id === f.id ? (
+                      <input
+                        type="number"
+                        className="border rounded-lg px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+                        value={editing.kedalaman}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            kedalaman: Number(e.target.value),
+                          })
+                        }
+                      />
+                    ) : (
+                      <span className="px-2 py-1 bg-red-100 text-red-600 rounded-lg text-sm">
+                        {f.kedalaman} cm
                       </span>
                     )}
                   </td>

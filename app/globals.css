@@ -24,3 +24,12 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+/* Sembunyikan banner terjemahan */
+.goog-te-banner-frame.skiptranslate { display: none !important; }
+body { top: 0 !important; }
+
+/* Sembunyikan tooltip & badge kecil jika perlu */
+.goog-logo-link, .goog-te-gadget img { display: none !important; }
+.goog-te-gadget-simple { border: none !important; background: transparent !important; }

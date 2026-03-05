@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const { name, lat, lng, radius, kedalaman, user_updated } =
       await request.json();
 
-    if (!name || !lat || !lng || !radius || kedalaman == null) {
+    if (!name || !lat || !lng || !radius || user_updated || kedalaman == null) {
       return NextResponse.json(
         { error: "Semua field wajib diisi" },
         { status: 400 },
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const [result] = await db.query(
       `INSERT INTO tb_data_banjir 
        (name, lat, lng, radius, kedalaman, user_updated, status, datetime) 
-       VALUES (?, ?, ?, ?, ?, ?, 'aktif', NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, '1', NOW())`,
       [name, lat, lng, radius, kedalaman, user_updated || null],
     );
 
@@ -88,7 +88,7 @@ export async function PUT(request: Request) {
            status = ?, 
            datetime = NOW()
        WHERE id = ?`,
-      [name, lat, lng, radius, kedalaman, status || "aktif", id],
+      [name, lat, lng, radius, kedalaman, status || "1", id],
     );
 
     return NextResponse.json({ success: true });

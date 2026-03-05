@@ -4,17 +4,21 @@ import { useEffect, useState } from "react";
 import { GoogleMap, Circle, useJsApiLoader } from "@react-google-maps/api";
 import FloodDataList from "./FloodDataList";
 import AdminNews from "./adminNews";
+import { useRouter } from "next/navigation";
+
 type LatLng = { lat: number; lng: number };
 
 type FloodArea = {
   id: number;
   name: string;
+  kedalaman: number;
   lat: number;
   lng: number;
   radius: number;
 };
 
 export default function AdminFloodMap() {
+  const router = useRouter();
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
   });
@@ -27,6 +31,7 @@ export default function AdminFloodMap() {
     lng: 115.22,
   });
   const [radius, setRadius] = useState<number>(0);
+  const [kedalaman, setKedalaman] = useState<number>(0);
   const [name, setName] = useState<string>("");
   const [floods, setFloods] = useState<FloodArea[]>([]);
 
@@ -44,6 +49,12 @@ export default function AdminFloodMap() {
     "dashboard",
   );
   useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    console.log("user", user);
+    if (!user) {
+      return router.push("/login");
+    }
+
     if (!map) return;
 
     // Ambil semua data banjir
@@ -77,12 +88,15 @@ export default function AdminFloodMap() {
 
   const handleSave = async () => {
     if (!name) return alert("Nama lokasi wajib diisi");
+    const user_updated = JSON.parse(localStorage.getItem("id"));
 
     const res = await fetch("/api/flood-areas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name,
+        kedalaman,
+        user_updated,
         lat: markerPos.lat,
         lng: markerPos.lng,
         radius,
@@ -210,6 +224,19 @@ export default function AdminFloodMap() {
                   padding: 6,
                   color: "black",
                 }}
+              />{" "}
+              <label style={{ marginTop: 6, display: "block", color: "black" }}>
+                {" "}
+                Kedalaman Banjir : {kedalaman}
+                {" cm"}
+              </label>{" "}
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={kedalaman}
+                onChange={(e) => setKedalaman(Number(e.target.value))}
+                style={{ width: "100%", color: "black" }}
               />{" "}
               <label style={{ marginTop: 6, display: "block", color: "black" }}>
                 {" "}
