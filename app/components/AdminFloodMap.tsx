@@ -12,6 +12,7 @@ type FloodArea = {
   id: number;
   name: string;
   kedalaman: number;
+  kondisi: number;
   lat: number;
   lng: number;
   radius: number;
@@ -34,6 +35,8 @@ export default function AdminFloodMap() {
   const [kedalaman, setKedalaman] = useState<number>(0);
   const [name, setName] = useState<string>("");
   const [floods, setFloods] = useState<FloodArea[]>([]);
+
+  const [kondisiJalan, setKondisiJalan] = useState(0); // 0=Baik, 1=Sedang, 2=Rusak
 
   const fetchFloods = () => {
     fetch("/api/flood-areas")
@@ -100,6 +103,7 @@ export default function AdminFloodMap() {
         lat: markerPos.lat,
         lng: markerPos.lng,
         radius,
+        kondisi: kondisiJalan,
       }),
     });
 
@@ -250,6 +254,29 @@ export default function AdminFloodMap() {
                 onChange={(e) => setRadius(Number(e.target.value))}
                 style={{ width: "100%", color: "black" }}
               />{" "}
+              {/* ▼ Dropdown Kondisi Jalan */}
+              <label
+                style={{ marginTop: 10, display: "block", color: "black" }}
+              >
+                Kondisi Jalan
+              </label>
+              <select
+                value={kondisiJalan}
+                onChange={(e) => setKondisiJalan(Number(e.target.value))}
+                style={{
+                  width: "100%",
+                  marginTop: 6,
+                  padding: 8,
+                  color: "black",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 6,
+                  background: "white",
+                }}
+              >
+                <option value={0}>0 - Baik</option>
+                <option value={1}>1 - Sedang</option>
+                <option value={2}>2 - Rusak</option>
+              </select>
               <button
                 onClick={handleSave}
                 style={{

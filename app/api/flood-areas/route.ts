@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const [rows]: any = await db.query(
-    `SELECT id, name, lat, lng, radius, kedalaman, status, datetime 
+    `SELECT id, name, lat, lng, radius, kondisi, kedalaman, status, datetime 
      FROM tb_data_banjir 
      WHERE status = '1'`,
   );
@@ -16,6 +16,7 @@ export async function GET() {
     lng: Number(r.lng),
     radius: Number(r.radius),
     kedalaman: Number(r.kedalaman), // 🔥 baru
+    kondisi: Number(r.kondisi), // 🔥 baru
     status: r.status,
     datetime: r.datetime,
   }));
@@ -25,10 +26,18 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { name, lat, lng, radius, kedalaman, user_updated } =
+    const { name, lat, lng, radius, kedalaman, kondisi, user_updated } =
       await request.json();
 
-    if (!name || !lat || !lng || !radius || user_updated || kedalaman == null) {
+    if (
+      !name ||
+      !lat ||
+      !lng ||
+      !radius ||
+      user_updated ||
+      user_updated ||
+      kedalaman == null
+    ) {
       return NextResponse.json(
         { error: "Semua field wajib diisi" },
         { status: 400 },
@@ -37,9 +46,9 @@ export async function POST(request: Request) {
 
     const [result] = await db.query(
       `INSERT INTO tb_data_banjir 
-       (name, lat, lng, radius, kedalaman, user_updated, status, datetime) 
-       VALUES (?, ?, ?, ?, ?, ?, '1', NOW())`,
-      [name, lat, lng, radius, kedalaman, user_updated || null],
+       (name, lat, lng, radius, kedalaman, kondisi, user_updated, status, datetime) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, '1', NOW())`,
+      [name, lat, lng, radius, kedalaman, kondisi, user_updated || null],
     );
 
     return NextResponse.json({
@@ -68,10 +77,18 @@ export async function DELETE(request: Request) {
 // PUT untuk edit
 export async function PUT(request: Request) {
   try {
-    const { id, name, lat, lng, radius, kedalaman, status } =
+    const { id, name, lat, lng, radius, kedalaman, kondisi, status } =
       await request.json();
 
-    if (!id || !name || !lat || !lng || !radius || kedalaman == null) {
+    if (
+      !id ||
+      !name ||
+      !lat ||
+      !lng ||
+      !radius ||
+      !kondisi ||
+      kedalaman == null
+    ) {
       return NextResponse.json(
         { error: "Semua field wajib diisi" },
         { status: 400 },
@@ -85,10 +102,11 @@ export async function PUT(request: Request) {
            lng = ?, 
            radius = ?, 
            kedalaman = ?, 
+           kondisi = ?, 
            status = ?, 
            datetime = NOW()
        WHERE id = ?`,
-      [name, lat, lng, radius, kedalaman, status || "1", id],
+      [name, lat, lng, radius, kedalaman, kondisi, status || "1", id],
     );
 
     return NextResponse.json({ success: true });
