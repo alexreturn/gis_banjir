@@ -22,7 +22,7 @@ export default function LoginPage() {
       const data = await res.json();
       if (data.success) {
         localStorage.setItem("user", JSON.stringify(data.user));
-        localStorage.setItem("id", JSON.stringify(data.id));
+        localStorage.setItem("id", JSON.stringify(data.user.id));
         router.push("/admin"); // redirect ke admin dashboard
       } else {
         setError(data.error || "Login gagal");

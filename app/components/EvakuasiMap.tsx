@@ -21,6 +21,8 @@ type FloodArea = {
   lat: number;
   lng: number;
   radius: number;
+  kedalaman: number;
+  kondisi: 0 | 1 | 2;
 };
 
 type OrsRoute = {
@@ -36,7 +38,8 @@ type Props = {
 const LIBRARIES = ["geometry", "visualization", "places"] as const;
 
 const center = { lat: -8.65, lng: 115.22 }; // default Bali tengah
-const MAX_SAFE_DEPTH = 40; // cm batas aman untuk dilalui kendaraan
+const MAX_SAFE_DEPTH = 50; // cm batas aman untuk dilalui kendaraan
+const USE_MAX_DEPTH = true;
 const weights = {
   distance: 0.3,
   duration: 0.2,
@@ -277,7 +280,12 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
     return deg * (Math.PI / 180);
   }
 
-  function calculateSAW(routes: any[], floods: FloodArea[]) {
+  // helper: min > 0 (untuk cost yang bisa nol)
+  function minPositive(values: number[]) {
+    const positives = values.filter((v) => v > 0);
+    return positives.length ? Math.min(...positives) : 0;
+  }
+  function calculateSAWOld(routes: any[], floods: FloodArea[]) {
     const alternatives = routes.map((r, index) => {
       const distance = r.properties.summary.distance;
       const duration = r.properties.summary.duration;
@@ -326,28 +334,109 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
     return ranked;
   }
 
+  function calculateSAW(routes: any[], floods: FloodArea[]) {
+    const alternatives = routes.map((r, index) => {
+      const distance = r.properties.summary.distance;
+      const duration = r.properties.summary.duration;
+      const floodData = countFloodImpact(r.geometry.coordinates, floods);
+      console.log("floodData", floodData);
+      return {
+        index,
+        distance,
+        duration,
+        floodRisk: floodData.risk, // 0,1,2 (0=terbaik)
+        floodDepth: floodData.totalDepth, // cm (bisa nol)
+        blocked: floodData.blocked,
+      };
+    });
+
+    // edge case: jika kosong
+    if (alternatives.length === 0) return [];
+
+    // --- ambil nilai minimum untuk kriteria cost
+    const minDistance = Math.min(...alternatives.map((a) => a.distance));
+    const minDuration = Math.min(...alternatives.map((a) => a.duration));
+    const minRiskPos = minPositive(alternatives.map((a) => a.floodRisk)); // >0 saja
+    const minDepthPos = minPositive(alternatives.map((a) => a.floodDepth)); // >0 saja
+
+    const ranked = alternatives.map((a) => {
+      if (a.blocked) {
+        return { ...a, score: 0 };
+      }
+
+      // cost normalization: min/x
+      const rDistance = minDistance > 0 ? minDistance / a.distance : 1;
+      const rDuration = minDuration > 0 ? minDuration / a.duration : 1;
+
+      // Risk (0,1,2): rute dengan 0 -> skor 1 (terbaik), lainnya bandingkan dengan min positif
+      let rFlood = 1;
+      if (a.floodRisk === 0) {
+        rFlood = 1;
+      } else if (minRiskPos > 0) {
+        rFlood = minRiskPos / a.floodRisk;
+      } else {
+        // semua rute 0? ya sudah 1
+        rFlood = 1;
+      }
+
+      // Depth (cm): 0 -> 1; lainnya minPos/x
+      let rDepth = 1;
+      if (a.floodDepth === 0) {
+        rDepth = 1;
+      } else if (minDepthPos > 0) {
+        rDepth = minDepthPos / a.floodDepth;
+      } else {
+        rDepth = 1;
+      }
+
+      const score =
+        rDistance * weights.distance +
+        rDuration * weights.duration +
+        rFlood * weights.floodRisk +
+        rDepth * weights.floodDepth;
+
+      return { ...a, score };
+    });
+
+    console.log(ranked);
+
+    ranked.sort((a, b) => b.score - a.score);
+    return ranked;
+  }
+
   function countFloodImpact(routeCoords: number[][], floods: FloodArea[]) {
-    let risk = 0;
-    let totalDepth = 0;
+    let risk: 0 | 1 | 2 = 0; // default paling aman (baik)
+    let totalDepth = 0; // cm
     let blocked = false;
 
-    routeCoords.forEach((coord) => {
+    for (const coord of routeCoords) {
       const [lng, lat] = coord;
 
-      floods.forEach((f) => {
+      for (const f of floods) {
         const distance = getDistanceFromLatLonInMeters(lat, lng, f.lat, f.lng);
 
         if (distance < f.radius) {
-          risk += 1;
-          totalDepth += Number(f.kedalaman || 0);
+          // totalDepth: jumlahkan kedalaman (satuan cm sudah benar dari DB)
+          // totalDepth += Number(f.kedalaman || 0);
 
-          // 🔥 cek apakah terlalu dalam
+          const depth = Number(f.kedalaman || 0);
+          if (USE_MAX_DEPTH) {
+            totalDepth = Math.max(totalDepth, depth); // bahaya puncak
+          } else {
+            totalDepth += depth; // paparan total
+          }
+
+          // risk: gunakan nilai kondisi_jalan tertinggi yang terkena rute
+          const r = Number(f.kondisi ?? 0) as 0 | 1 | 2;
+          if (r > risk) risk = r;
+
+          // blokir jika kedalaman melebihi ambang aman
           if (Number(f.kedalaman) > MAX_SAFE_DEPTH) {
             blocked = true;
           }
         }
-      });
-    });
+      }
+    }
 
     return { risk, totalDepth, blocked };
   }

@@ -29,15 +29,7 @@ export async function POST(request: Request) {
     const { name, lat, lng, radius, kedalaman, kondisi, user_updated } =
       await request.json();
 
-    if (
-      !name ||
-      !lat ||
-      !lng ||
-      !radius ||
-      user_updated ||
-      user_updated ||
-      kedalaman == null
-    ) {
+    if (!name || !lat || !lng || !radius || !user_updated || !kedalaman) {
       return NextResponse.json(
         { error: "Semua field wajib diisi" },
         { status: 400 },
