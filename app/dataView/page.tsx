@@ -29,32 +29,6 @@ function FloodDataList() {
     fetchFloods();
   }, []);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Hapus data banjir ini?")) return;
-    const res = await fetch("/api/flood-areas", {
-      method: "DELETE",
-      body: JSON.stringify({ id }),
-      headers: { "Content-Type": "application/json" },
-    });
-    const data = await res.json();
-    if (data.success) fetchFloods();
-    else alert("Gagal hapus: " + data.error);
-  };
-
-  const handleEditSave = async () => {
-    if (!editing) return;
-    const res = await fetch("/api/flood-areas", {
-      method: "PUT",
-      body: JSON.stringify(editing),
-      headers: { "Content-Type": "application/json" },
-    });
-    const data = await res.json();
-    if (data.success) {
-      fetchFloods();
-      setEditing(null);
-    } else alert("Gagal update: " + data.error);
-  };
-
   return (
     <div
       style={{

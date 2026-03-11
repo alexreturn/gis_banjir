@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import Swal from "sweetalert2";
+
 type News = {
   id: number;
   admin_id: number;
@@ -39,14 +41,16 @@ export default function AdminNewsPage() {
   // =============================
   const handleCreate = async () => {
     if (!form.title || !form.content) {
-      alert("Title dan Content wajib diisi");
+      // alert("Title dan Content wajib diisi");
+      Swal.fire("Title dan Content wajib diisi");
       return;
     }
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
 
     if (!user.id) {
-      alert("Admin tidak ditemukan. Silakan login ulang.");
+      Swal.fire("Admin tidak ditemukan. Silakan login ulang.");
+      // alert("Admin tidak ditemukan. Silakan login ulang.");
       return;
     }
 
@@ -71,32 +75,46 @@ export default function AdminNewsPage() {
       });
       fetchNews();
     } else {
-      alert("Gagal tambah: " + data.error);
+      Swal.fire("Gagal tambah: " + data.error);
+      // alert("Gagal tambah: " + data.error);
     }
   };
 
   // DELETE
   const handleDelete = async (id: number) => {
-    if (!confirm("Hapus berita ini?")) return;
+    Swal.fire({
+      title: "Apakah Anda yakin?",
 
-    try {
-      const res = await fetch("/api/news", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
+      showCancelButton: true,
+      confirmButtonText: "Hapus",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const res = await fetch("/api/news", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+          });
 
-      const data = await res.json().catch(() => ({}));
+          const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
-        alert("Gagal hapus: " + (data.error || res.statusText));
-        return;
+          if (!res.ok) {
+            Swal.fire("Gagal hapus: " + (data.error || res.statusText));
+            // alert("Gagal hapus: " + (data.error || res.statusText));
+            return;
+          }
+
+          fetchNews();
+        } catch (err: any) {
+          Swal.fire("Gagal hapus: " + err.message);
+          // alert("Gagal hapus: " + err.message);
+        }
+      } else if (result.isDenied) {
+        Swal.fire("Changes are not saved", "", "info");
       }
+    });
 
-      fetchNews();
-    } catch (err: any) {
-      alert("Gagal hapus: " + err.message);
-    }
+    // if (!confirm("Hapus berita ini?")) return;
   };
 
   // UPDATE
@@ -118,14 +136,16 @@ export default function AdminNewsPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert("Gagal update: " + (data.error || res.statusText));
+        Swal.fire("Gagal update: " + (data.error || res.statusText));
+        // alert("Gagal update: " + (data.error || res.statusText));
         return;
       }
 
       setEditing(null);
       fetchNews();
     } catch (err: any) {
-      alert("Gagal update: " + err.message);
+      Swal.fire("Gagal update: " + err.message);
+      // alert("Gagal update: " + err.message);
     }
   };
 

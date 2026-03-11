@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import Swal from "sweetalert2";
+
 // Define the FloodArea type
 type FloodArea = {
   id: number;
@@ -29,15 +31,35 @@ function FloodDataList() {
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Hapus data banjir ini?")) return;
-    const res = await fetch("/api/flood-areas", {
-      method: "DELETE",
-      body: JSON.stringify({ id }),
-      headers: { "Content-Type": "application/json" },
+    Swal.fire({
+      title: "Apakah Anda yakin?",
+
+      showCancelButton: true,
+      confirmButtonText: "Hapus",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        const res = await fetch("/api/flood-areas", {
+          method: "DELETE",
+          body: JSON.stringify({ id }),
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json();
+        if (data.success) fetchFloods();
+        else alert("Gagal hapus: " + data.error);
+      } else if (result.isDenied) {
+        Swal.fire("Changes are not saved", "", "info");
+      }
     });
-    const data = await res.json();
-    if (data.success) fetchFloods();
-    else alert("Gagal hapus: " + data.error);
+
+    // if (!confirm("Hapus data banjir ini?")) return;
+    // const res = await fetch("/api/flood-areas", {
+    //   method: "DELETE",
+    //   body: JSON.stringify({ id }),
+    //   headers: { "Content-Type": "application/json" },
+    // });
+    // const data = await res.json();
+    // if (data.success) fetchFloods();
+    // else alert("Gagal hapus: " + data.error);
   };
 
   const handleEditSave = async () => {

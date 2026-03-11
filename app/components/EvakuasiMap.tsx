@@ -10,6 +10,7 @@ import {
   Polyline,
   InfoWindow,
 } from "@react-google-maps/api";
+import Swal from "sweetalert2";
 
 import Header from "./Header";
 
@@ -60,7 +61,12 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
 
   const getUserLocation = () => {
     if (!navigator.geolocation) {
-      alert("Browser tidak mendukung GPS");
+      // alert("Browser tidak mendukung GPS");
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Browser tidak mendukung GPS!",
+      });
       return;
     }
 
@@ -93,7 +99,12 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
         );
       },
       (err) => {
-        alert("Gagal mengambil lokasi: " + err.message);
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: "Gagal mengambil lokasi: " + err.message,
+        });
+        // alert("Gagal mengambil lokasi: " + err.message);
       },
       {
         enableHighAccuracy: true,
@@ -152,12 +163,21 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
   // Kirim komentar
   const handleSubmit = async () => {
     if (!comment.trim()) {
-      alert("Komentar wajib diisi");
+      // alert("Komentar wajib diisi");
+      Swal.fire({
+        title: "Komentar wajib diisi",
+        icon: "question",
+      });
       return;
     }
 
     if (!hoveredFlood?.id) {
-      alert("Data banjir tidak ditemukan");
+      // alert("Data banjir tidak ditemukan");
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Data banjir tidak ditemukan",
+      });
       return;
     }
 
@@ -182,7 +202,12 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
       setComment("");
       // fetchComments();
     } else {
-      alert(result.error);
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: result.error,
+      });
+      // alert(result.error);
     }
 
     setLoading(false);
@@ -593,6 +618,17 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
   }
 
   async function checkroute() {
+    Swal.fire({
+      title: "Loading",
+      html: "Mohon tunggu sebentar...",
+
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
+    Swal.showLoading();
+    Swal.hideLoading();
     if (!start || !end) return;
 
     console.log("Ambil route tanpa avoid...");
@@ -627,7 +663,12 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
       .slice(0, 3);
 
     if (!topThree.length) {
-      console.log("Semua rute terblokir");
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Semua Rute terblokir!",
+      });
+
       return;
     }
 
@@ -645,7 +686,7 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
         score: rank.score,
       };
     });
-
+    Swal.close();
     setRoutes(finalRoutes);
     setActiveRoute(0); // paling aman
   }

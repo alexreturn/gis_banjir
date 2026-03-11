@@ -1,10 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GoogleMap, Circle, useJsApiLoader } from "@react-google-maps/api";
+import {
+  GoogleMap,
+  Circle,
+  useJsApiLoader,
+  InfoWindow,
+} from "@react-google-maps/api";
 import FloodDataList from "./FloodDataList";
 import AdminNews from "./adminNews";
 import { useRouter } from "next/navigation";
+
+import Swal from "sweetalert2";
 
 type LatLng = { lat: number; lng: number };
 
@@ -34,23 +41,31 @@ export default function AdminFloodMap() {
   const [radius, setRadius] = useState<number>(0);
   const [kedalaman, setKedalaman] = useState<number>(0);
   const [name, setName] = useState<string>("");
+
+  const [floodAreas, setFloodAreas] = useState<FloodArea[]>([]);
+
   const [floods, setFloods] = useState<FloodArea[]>([]);
+
+  const [hoveredFlood, setHoveredFlood] = useState<any>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [comment, setComment] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const [kondisiJalan, setKondisiJalan] = useState(0); // 0=Baik, 1=Sedang, 2=Rusak
 
   const fetchFloods = () => {
     fetch("/api/flood-areas")
       .then((res) => res.json())
-      .then((data: FloodArea[]) => setFloods(data))
+      .then((data: FloodArea[]) => setFloodAreas(data))
       .catch(console.error);
   };
 
   // Marker khusus untuk add data
   const [newMarker, setNewMarker] = useState<google.maps.Marker | null>(null);
 
-  const [activeMenu, setActiveMenu] = useState<"dashboard" | "data" | "news">(
-    "dashboard",
-  );
+  const [activeMenu, setActiveMenu] = useState<
+    "dashboard" | "data" | "news" | "komentar"
+  >("dashboard");
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     console.log("user", user);
@@ -87,10 +102,85 @@ export default function AdminFloodMap() {
     };
   }, [map]);
 
+  const fetchComments = async (floodId: number) => {
+    try {
+      const res = await fetch(`/api/route-comments?flood_id=${floodId}`);
+
+      const result = await res.json();
+
+      if (result.success) {
+        setComments(result.data);
+      } else {
+        setComments([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setComments([]);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!comment.trim()) {
+      // alert("Komentar wajib diisi");
+      Swal.fire({
+        title: "Komentar wajib diisi",
+        icon: "question",
+      });
+      return;
+    }
+
+    if (!hoveredFlood?.id) {
+      // alert("Data banjir tidak ditemukan");
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Data banjir tidak ditemukan",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    const res = await fetch("/api/route-comments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        route_log_id: hoveredFlood.id,
+        user_name: "ADMIN", // ✅ variable, bukan string
+        comment,
+        is_admin: false,
+      }),
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
+      setComment("");
+      // fetchComments();
+    } else {
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: result.error,
+      });
+      // alert(result.error);
+    }
+
+    setLoading(false);
+  };
+
   if (!isLoaded) return <div>Loading Map...</div>;
 
   const handleSave = async () => {
-    if (!name) return alert("Nama lokasi wajib diisi");
+    if (!name) return;
+    Swal.fire({
+      icon: "error",
+      title: "Oops...",
+      text: "Nama lokasi wajib diisi!",
+    });
+    // alert("Nama lokasi wajib diisi");
     const user_updated = JSON.parse(localStorage.getItem("id"));
 
     const res = await fetch("/api/flood-areas", {
@@ -109,12 +199,57 @@ export default function AdminFloodMap() {
 
     const data = await res.json();
     if (data.success) {
-      alert("Data banjir berhasil disimpan!");
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Data banjir berhasil disimpan!",
+      });
+      // alert("Data banjir berhasil disimpan!");
       setName(""); // reset form
       fetchFloods(); // 🔹 reload data banjir
     } else {
-      alert("Error: " + data.error);
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Error: " + data.error,
+      });
+      // alert("Error: " + data.error);
     }
+  };
+
+  // DELETE
+  const handleDeleteComment = async (id: number) => {
+    Swal.fire({
+      title: "Apakah Anda yakin?",
+
+      showCancelButton: true,
+      confirmButtonText: "Hapus",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const res = await fetch("/api/route-comments", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id }),
+          });
+
+          const data = await res.json().catch(() => ({}));
+
+          if (!res.ok) {
+            Swal.fire("Gagal hapus: " + (data.error || res.statusText));
+            // alert("Gagal hapus: " + (data.error || res.statusText));
+            return;
+          }
+        } catch (err: any) {
+          Swal.fire("Gagal hapus: " + err.message);
+          // alert("Gagal hapus: " + err.message);
+        }
+      } else if (result.isDenied) {
+        Swal.fire("Changes are not saved", "", "info");
+      }
+    });
+
+    // if (!confirm("Hapus berita ini?")) return;
   };
 
   return (
@@ -185,7 +320,7 @@ export default function AdminFloodMap() {
               cursor: "pointer",
             }}
           >
-            News
+            Informasi
           </button>
         </div>
       </div>
@@ -306,7 +441,7 @@ export default function AdminFloodMap() {
                 onLoad={(m) => setMap(m)}
               >
                 {/* Render semua data banjir */}
-                {floods.map((f) => (
+                {floodAreas.map((f) => (
                   <Circle
                     key={f.id}
                     center={{ lat: f.lat, lng: f.lng }}
@@ -315,10 +450,131 @@ export default function AdminFloodMap() {
                       fillColor: "#ef4444",
                       fillOpacity: 0.25,
                       strokeColor: "#b91c1c",
-                      strokeWeight: 2,
+                    }}
+                    onMouseOver={async () => {
+                      setHoveredFlood(f);
+                      await fetchComments(f.id);
+                    }}
+                    onMouseOut={async () => {
+                      setHoveredFlood(null);
+                      setComments([]);
                     }}
                   />
                 ))}
+                {hoveredFlood && (
+                  <InfoWindow
+                    position={{ lat: hoveredFlood.lat, lng: hoveredFlood.lng }}
+                    options={{ disableAutoPan: true, headerDisabled: true }}
+                  >
+                    <div style={{ color: "black" }}>
+                      <strong>{hoveredFlood.name}</strong>
+                      <div>Radius: {hoveredFlood.radius} m</div>
+                      <div>Kedalaman: {hoveredFlood.kedalaman} cm</div>
+                      {/* List Komentar */}
+                      <br></br>
+                      <b>Ulasan</b>
+                      <div
+                        style={{
+                          marginTop: 8,
+                          maxHeight: 200,
+                          overflowY: "auto",
+                          background: "#f8fafc",
+                          padding: 8,
+                          borderRadius: 8,
+                        }}
+                      >
+                        {comments.length === 0 && (
+                          <div style={{ fontSize: 12, color: "#64748b" }}>
+                            Belum ada komentar
+                          </div>
+                        )}
+
+                        {comments.map((c) => (
+                          <div
+                            key={c.id}
+                            style={{
+                              background: c.is_admin ? "#eef2ff" : "white",
+                              padding: 8,
+                              borderRadius: 8,
+                              marginBottom: 6,
+                              border: "1px solid #e5e7eb",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                              }}
+                            >
+                              <div style={{ fontWeight: "bold", fontSize: 12 }}>
+                                {c.user_name == "ADMIN" ? (
+                                  <a
+                                    style={{
+                                      color: "red",
+                                    }}
+                                  >
+                                    ADMIN
+                                  </a>
+                                ) : (
+                                  c.user_name
+                                )}
+                              </div>
+
+                              <button
+                                onClick={() => handleDeleteComment(c.id)}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "#ef4444",
+                                  cursor: "pointer",
+                                  fontWeight: "bold",
+                                  fontSize: 12,
+                                }}
+                              >
+                                ✕
+                              </button>
+                            </div>
+
+                            <div style={{ fontSize: 12, marginTop: 4 }}>
+                              {c.comment}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <textarea
+                        placeholder="Bagikan kondisi jalur..."
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        style={{
+                          width: "100%",
+                          marginTop: 6,
+                          padding: 6,
+                          borderRadius: 6,
+                          border: "1px solid #e5e7eb",
+                          fontSize: 12,
+                        }}
+                      />
+                      <button
+                        onClick={handleSubmit}
+                        disabled={loading}
+                        style={{
+                          marginTop: 8,
+                          width: "100%",
+                          padding: 8,
+                          background: "#2563eb",
+                          color: "white",
+                          borderRadius: 6,
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 12,
+                        }}
+                      >
+                        {loading ? "Mengirim..." : "Kirim Komentar"}
+                      </button>
+                    </div>
+                  </InfoWindow>
+                )}
 
                 {/* Marker drag untuk add data */}
                 {newMarker && (

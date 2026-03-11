@@ -68,3 +68,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const { id } = await request.json();
+    if (!id)
+      return NextResponse.json({ error: "ID wajib diisi" }, { status: 400 });
+
+    await db.query("DELETE FROM tb_chat_log WHERE id = ?", [id]);
+    return NextResponse.json({ success: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}

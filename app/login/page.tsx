@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import Swal from "sweetalert2";
+
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -25,10 +27,20 @@ export default function LoginPage() {
         localStorage.setItem("id", JSON.stringify(data.user.id));
         router.push("/admin"); // redirect ke admin dashboard
       } else {
-        setError(data.error || "Login gagal");
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: "Login gagal!",
+        });
+        // setError(data.error || "Login gagal");
       }
     } catch (e) {
-      setError("Terjadi error, coba lagi");
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Terjadi error, coba lagi!",
+      });
+      // setError("Terjadi error, coba lagi");
     } finally {
       setLoading(false);
     }
