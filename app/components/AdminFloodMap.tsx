@@ -174,12 +174,14 @@ export default function AdminFloodMap() {
   if (!isLoaded) return <div>Loading Map...</div>;
 
   const handleSave = async () => {
-    if (!name) return;
-    Swal.fire({
-      icon: "error",
-      title: "Oops...",
-      text: "Nama lokasi wajib diisi!",
-    });
+    if (!name) {
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Nama lokasi wajib diisi!",
+      });
+      return;
+    }
     // alert("Nama lokasi wajib diisi");
     const user_updated = JSON.parse(localStorage.getItem("id"));
 
@@ -200,8 +202,8 @@ export default function AdminFloodMap() {
     const data = await res.json();
     if (data.success) {
       Swal.fire({
-        icon: "error",
-        title: "Oops...",
+        icon: "success",
+        title: "Berhasil",
         text: "Data banjir berhasil disimpan!",
       });
       // alert("Data banjir berhasil disimpan!");

@@ -707,20 +707,7 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
 
     async function loadRoute() {
       try {
-        const data = await fetchORSRoute(start, end, floodAreas);
-
-        if (isCancelled) return;
-
-        const parsedRoutes: OrsRoute[] = data.features.map((feature: any) => ({
-          path: feature.geometry.coordinates.map((c: number[]) => ({
-            lng: c[0],
-            lat: c[1],
-          })),
-          distance: feature.properties.summary.distance,
-          duration: feature.properties.summary.duration,
-        }));
-
-        setRoutes(parsedRoutes);
+        checkroute();
       } catch (err) {
         console.error(err);
       }
@@ -732,6 +719,7 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
       isCancelled = true;
     };
   }, [calculate]);
+
   if (!isLoaded) return <div>Loading map...</div>;
 
   return (
