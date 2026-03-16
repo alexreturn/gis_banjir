@@ -135,7 +135,6 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
   const [hoveredFlood, setHoveredFlood] = useState<any>(null);
 
   const [weather, setWeather] = useState<any>(null);
-  const [routeHistory, setRouteHistory] = useState<any[]>([]);
 
   const [userName, setUserName] = useState("");
 
@@ -555,13 +554,6 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
     return place?.name || place?.formatted_address || "";
   };
 
-  const fetchHistory = async () => {
-    const sessionId = getSessionId();
-    const res = await fetch(`/api/route-logs?session_id=${sessionId}`);
-    const data = await res.json();
-    setRouteHistory(data);
-  };
-
   const insertRouteLog = async (route: any, index: number) => {
     if (!start || !end) return;
 
@@ -589,9 +581,6 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
       });
 
       if (!res.ok) throw new Error("Gagal simpan log");
-
-      // Refresh history setelah insert
-      fetchHistory();
     } catch (err) {
       console.error("Insert route error:", err);
     }
@@ -690,10 +679,6 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
     setRoutes(finalRoutes);
     setActiveRoute(0); // paling aman
   }
-
-  useEffect(() => {
-    fetchHistory();
-  }, []);
 
   useEffect(() => {
     setRoutes([]);
@@ -846,47 +831,6 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
                   </strong>
                 </div>
                 <div style={{ color: "black" }}></div>
-              </button>
-            ))}
-          </div>
-        )}
-        {/* History Rute */}
-        {routeHistory.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <strong style={{ color: "black" }}>Riwayat Rute:</strong>
-
-            {routeHistory.slice(0, 5).map((h) => (
-              <button
-                key={h.id}
-                onClick={() => {
-                  // set ulang start & end
-                  setStart({ lat: h.start_lat, lng: h.start_lng });
-                  setEnd({ lat: h.end_lat, lng: h.end_lng });
-
-                  // trigger hitung ulang rute
-                  setActiveRoute(h.selected_route_index || 0);
-                  setCalculate(true);
-                }}
-                style={{
-                  marginTop: 6,
-                  width: "100%",
-                  padding: 8,
-                  borderRadius: 6,
-                  border: "1px solid #e5e7eb",
-                  background: "#f8fafc",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  fontSize: 12,
-                  color: "black",
-                }}
-              >
-                <div>
-                  📍 {h.start_address} → {h.end_address}
-                </div>
-                <div style={{ fontSize: 11, color: "#475569" }}>
-                  📏 {h.distance_km?.toFixed(2)} km | ⏱{" "}
-                  {Math.round(h.duration_min)} menit
-                </div>
               </button>
             ))}
           </div>

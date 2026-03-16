@@ -23,7 +23,7 @@ export async function GET(request: Request) {
               comment,
               is_admin,
               created_at
-       FROM tb_chat_log
+       FROM tb_komentar
        WHERE route_log_id = ?
        ORDER BY created_at DESC`,
       [flood_id],
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     }
 
     await db.query(
-      `INSERT INTO tb_chat_log
+      `INSERT INTO tb_komentar
        (route_log_id, user_name, comment, is_admin)
        VALUES (?, ?, ?, ?)`,
       [route_log_id, user_name, comment, is_admin ? 1 : 0],
@@ -75,7 +75,7 @@ export async function DELETE(request: Request) {
     if (!id)
       return NextResponse.json({ error: "ID wajib diisi" }, { status: 400 });
 
-    await db.query("DELETE FROM tb_chat_log WHERE id = ?", [id]);
+    await db.query("DELETE FROM tb_komentar WHERE id = ?", [id]);
     return NextResponse.json({ success: true });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

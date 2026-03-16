@@ -8,7 +8,6 @@ import {
   InfoWindow,
 } from "@react-google-maps/api";
 import FloodDataList from "./FloodDataList";
-import AdminNews from "./adminNews";
 import { useRouter } from "next/navigation";
 
 import Swal from "sweetalert2";
@@ -311,19 +310,6 @@ export default function AdminFloodMap() {
           >
             Data
           </button>
-          <button
-            onClick={() => setActiveMenu("news")}
-            style={{
-              background: activeMenu === "news" ? "#1d4ed8" : "transparent",
-              color: "white",
-              border: "none",
-              padding: "6px 12px",
-              borderRadius: 4,
-              cursor: "pointer",
-            }}
-          >
-            Informasi
-          </button>
         </div>
       </div>
 
@@ -597,7 +583,6 @@ export default function AdminFloodMap() {
         )}
 
         {activeMenu === "data" && <FloodDataList />}
-        {activeMenu === "news" && <AdminNews />}
       </div>
     </div>
   );
