@@ -11,6 +11,7 @@ import FloodDataList from "./FloodDataList";
 import { useRouter } from "next/navigation";
 
 import Swal from "sweetalert2";
+export const dynamic = "force-dynamic";
 
 type LatLng = { lat: number; lng: number };
 
@@ -28,6 +29,7 @@ export default function AdminFloodMap() {
   const router = useRouter();
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
+    libraries: ["geometry", "visualization", "places"] as const,
   });
 
   const center = { lat: -8.65, lng: 115.22 };
@@ -66,7 +68,7 @@ export default function AdminFloodMap() {
     "dashboard" | "data" | "news" | "komentar"
   >("dashboard");
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
+    const user = JSON.parse(localStorage.getItem("user") ?? "null");
     console.log("user", user);
     if (!user) {
       return router.push("/login");
@@ -182,7 +184,7 @@ export default function AdminFloodMap() {
       return;
     }
     // alert("Nama lokasi wajib diisi");
-    const user_updated = JSON.parse(localStorage.getItem("id"));
+    const user_updated = JSON.parse(localStorage.getItem("id") ?? "");
 
     const res = await fetch("/api/flood-areas", {
       method: "POST",

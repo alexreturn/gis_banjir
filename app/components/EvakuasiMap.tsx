@@ -13,6 +13,7 @@ import {
 import Swal from "sweetalert2";
 
 import Header from "./Header";
+export const dynamic = "force-dynamic";
 
 type GMap = google.maps.Map | null;
 
@@ -36,7 +37,7 @@ type Props = {
   routeLogId: number | null;
 };
 
-const LIBRARIES = ["geometry", "visualization", "places"] as const;
+// const LIBRARIES = ["geometry", "visualization", "places"] ;
 
 const center = { lat: -8.65, lng: 115.22 }; // default Bali tengah
 const MAX_SAFE_DEPTH = 50; // cm batas aman untuk dilalui kendaraan
@@ -51,7 +52,8 @@ const weights = {
 export default function EvakuasiGIS({ routeLogId }: Props) {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-    libraries: LIBRARIES,
+    libraries: ["geometry", "visualization", "places"] as const,
+    // libraries: ["geometry", "visualization", "places"],
   });
 
   const routeColors = ["#16a34a", "#e5eb03", "#ff1212"];
@@ -682,7 +684,7 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
 
   useEffect(() => {
     setRoutes([]);
-    setActiveRoute(null);
+    setActiveRoute(0);
   }, [start, end]);
 
   useEffect(() => {
