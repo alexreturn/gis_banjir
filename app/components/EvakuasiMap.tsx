@@ -49,7 +49,7 @@ const weights = {
   floodDepth: 0.4,
 }; // bobot untuk SAW, total harus 1
 
-export default function EvakuasiGIS({ routeLogId }: Props) {
+export default function EvakuasiGIS({ routeLogId, weathers }: Props) {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
     libraries: ["geometry", "visualization", "places"] as const,
@@ -60,6 +60,59 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
   const [orsPath, setOrsPath] = useState<google.maps.LatLngLiteral[]>([]);
   const [floodAreas, setFloodAreas] = useState<FloodArea[]>([]);
   const [map, setMap] = useState<GMap>(null);
+
+  let tempC = Math.round(weathers?.main?.temp ?? 0);
+  let humidity = weathers?.main?.humidity ?? 0;
+  let windMs = weathers?.wind?.speed ?? 0;
+  let windKm = (windMs * 3.6).toFixed(1);
+
+  type LatLng = { lat: number; lng: number };
+  const [start, setStart] = useState<LatLng | null>(null);
+  const [end, setEnd] = useState<LatLng | null>(null);
+  const [startAuto, setStartAuto] =
+    useState<google.maps.places.Autocomplete | null>(null);
+  const [endAuto, setEndAuto] =
+    useState<google.maps.places.Autocomplete | null>(null);
+  const [calculate, setCalculate] = useState(false);
+
+  // const [routes, setRoutes] = useState<OrsRoute[]>([]);
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [activeRoute, setActiveRoute] = useState(0);
+  const [hoveredFlood, setHoveredFlood] = useState<any>(null);
+
+  const [weather, setWeather] = useState<any>(null);
+
+  const [userName, setUserName] = useState("");
+
+  const [comments, setComments] = useState<any[]>([]);
+  const [comment, setComment] = useState("");
+  const [rating, setRating] = useState(5);
+  const [loading, setLoading] = useState(false);
+  const [openMobile, setOpenMobile] = useState(false);
+
+  const [isPanelOpen, setIsPanelOpen] = useState(true);
+
+  const conditionIcon = useMemo(() => {
+    if (!weather) return "❓";
+    console.log("Weather data:", weather);
+    const main = (weather.weather?.[0]?.main || "").toLowerCase();
+    const desc = (weather.weather?.[0]?.description || "").toLowerCase();
+
+    tempC = Math.round(weather?.main?.temp ?? 0);
+    humidity = weather?.main?.humidity ?? 0;
+    windMs = weather?.wind?.speed ?? 0;
+    windKm = (windMs * 3.6).toFixed(1);
+
+    if (main.includes("cloud")) return "☁️"; // berawan
+    if (main.includes("rain") || desc.includes("hujan")) return "🌧️"; // hujan
+    if (main.includes("thunder")) return "⛈️"; // badai
+    if (main.includes("snow")) return "❄️"; // salju
+    if (main.includes("drizzle")) return "🌦️"; // gerimis
+    if (main.includes("clear")) return "☀️"; // cerah
+    if (main.includes("mist") || main.includes("fog") || main.includes("haze"))
+      return "🌫️"; // berkabut
+    return "🌤️"; // default partly-cloudy
+  }, [weather]);
 
   const getUserLocation = () => {
     if (!navigator.geolocation) {
@@ -121,29 +174,6 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
       .then(setFloodAreas)
       .catch(console.error);
   }, []);
-
-  type LatLng = { lat: number; lng: number };
-  const [start, setStart] = useState<LatLng | null>(null);
-  const [end, setEnd] = useState<LatLng | null>(null);
-  const [startAuto, setStartAuto] =
-    useState<google.maps.places.Autocomplete | null>(null);
-  const [endAuto, setEndAuto] =
-    useState<google.maps.places.Autocomplete | null>(null);
-  const [calculate, setCalculate] = useState(false);
-
-  // const [routes, setRoutes] = useState<OrsRoute[]>([]);
-  const [routes, setRoutes] = useState<any[]>([]);
-  const [activeRoute, setActiveRoute] = useState(0);
-  const [hoveredFlood, setHoveredFlood] = useState<any>(null);
-
-  const [weather, setWeather] = useState<any>(null);
-
-  const [userName, setUserName] = useState("");
-
-  const [comments, setComments] = useState<any[]>([]);
-  const [comment, setComment] = useState("");
-  const [rating, setRating] = useState(5);
-  const [loading, setLoading] = useState(false);
 
   const fetchComments = async (floodId: number) => {
     try {
@@ -716,7 +746,7 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
       <div
         style={{
           position: "absolute",
-          top: 150,
+          top: 170,
           left: 12,
           zIndex: 10,
           background: "white",
@@ -726,163 +756,279 @@ export default function EvakuasiGIS({ routeLogId }: Props) {
           width: 300,
         }}
       >
-        <strong style={{ color: "black" }}>Rute Alternatif Aman</strong>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            marginBottom: 6,
+          }}
+        >
+          <h4 style={{ color: "black", margin: 0 }}>Rute Alternatif</h4>
 
-        <div style={{ position: "relative", marginTop: 8 }}>
+          <button
+            onClick={() => setIsPanelOpen((v) => !v)}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid #e5e7eb",
+              background: isPanelOpen ? "#f3f4f6" : "#2563eb",
+              color: isPanelOpen ? "#111827" : "white",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+            aria-expanded={isPanelOpen}
+            aria-controls="form-tambah-banjir"
+            title={isPanelOpen ? "Sembunyikan panel" : "Tampilkan panel"}
+          >
+            {isPanelOpen ? "Sembunyikan" : "Tampilkan"}
+          </button>
+        </div>
+        <div
+          id="form-tambah-banjir"
+          style={{ display: isPanelOpen ? "block" : "none" }}
+        >
+          <div style={{ position: "relative", marginTop: 8 }}>
+            <Autocomplete
+              onLoad={(a) => setStartAuto(a)}
+              onPlaceChanged={onStartPlaceChanged}
+            >
+              <input
+                type="text"
+                placeholder="Posisi sekarang"
+                style={{
+                  width: "100%",
+                  padding: "6px 40px 6px 8px", // ruang untuk tombol
+                  color: "black",
+                }}
+              />
+            </Autocomplete>
+
+            <button
+              onClick={getUserLocation}
+              title="Gunakan lokasi saya"
+              style={{
+                position: "absolute",
+                right: 4,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: 32,
+                height: 32,
+                borderRadius: 6,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                cursor: "pointer",
+                fontSize: 18,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              📍
+            </button>
+          </div>
+
           <Autocomplete
-            onLoad={(a) => setStartAuto(a)}
-            onPlaceChanged={onStartPlaceChanged}
+            onLoad={(a) => setEndAuto(a)}
+            onPlaceChanged={onEndPlaceChanged}
           >
             <input
               type="text"
-              placeholder="Posisi sekarang"
+              placeholder="Tujuan"
               style={{
                 width: "100%",
-                padding: "6px 40px 6px 8px", // ruang untuk tombol
+                marginTop: 8,
+                padding: 6,
                 color: "black",
               }}
             />
           </Autocomplete>
 
           <button
-            onClick={getUserLocation}
-            title="Gunakan lokasi saya"
+            onClick={() => {
+              checkroute();
+            }}
+            disabled={!start || !end}
             style={{
-              position: "absolute",
-              right: 4,
-              top: "50%",
-              transform: "translateY(-50%)",
-              width: 32,
-              height: 32,
+              marginTop: 10,
+              width: "100%",
+              padding: 8,
+              background: "#2563eb",
+              color: "white",
               borderRadius: 6,
-              border: "1px solid #e5e7eb",
-              background: "#fff",
+              border: "none",
               cursor: "pointer",
-              fontSize: 18,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              opacity: !start || !end ? 0.6 : 1,
             }}
           >
-            📍
+            Cek Rute Aman
           </button>
+
+          {/* Pilih rute alternatif */}
+          {routes.length > 1 && (
+            <div style={{ marginTop: 12 }}>
+              <strong style={{ color: "black" }}>Pilih Rute Aman:</strong>
+
+              {routes.map((r, i) => (
+                <button
+                  key={i}
+                  onClick={async () => {
+                    setActiveRoute(i);
+                    // fetchComments();
+
+                    await insertRouteLog(r, i);
+                  }}
+                  style={{
+                    marginTop: 6,
+                    width: "100%",
+                    padding: 8,
+                    borderRadius: 6,
+                    border: "1px solid #e5e7eb",
+                    background: i === activeRoute ? "#eef2ff" : "#fff",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    fontSize: 13,
+                    color: "black",
+                  }}
+                >
+                  <div>
+                    <strong style={{ color: "black" }}>
+                      Rute-{i + 1} {" | "} 📏 {formatDistance(r.distance)}{" "}
+                      {" | "}⏱ {formatDuration(r.duration)}
+                    </strong>
+                  </div>
+                  <div style={{ color: "black" }}></div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-
-        <Autocomplete
-          onLoad={(a) => setEndAuto(a)}
-          onPlaceChanged={onEndPlaceChanged}
-        >
-          <input
-            type="text"
-            placeholder="Tujuan"
-            style={{ width: "100%", marginTop: 8, padding: 6, color: "black" }}
-          />
-        </Autocomplete>
-
-        <button
-          onClick={() => {
-            checkroute();
-          }}
-          disabled={!start || !end}
-          style={{
-            marginTop: 10,
-            width: "100%",
-            padding: 8,
-            background: "#2563eb",
-            color: "white",
-            borderRadius: 6,
-            border: "none",
-            cursor: "pointer",
-            opacity: !start || !end ? 0.6 : 1,
-          }}
-        >
-          Cek Rute Aman
-        </button>
-
-        {/* Pilih rute alternatif */}
-        {routes.length > 1 && (
-          <div style={{ marginTop: 12 }}>
-            <strong style={{ color: "black" }}>Pilih Rute Aman:</strong>
-
-            {routes.map((r, i) => (
-              <button
-                key={i}
-                onClick={async () => {
-                  setActiveRoute(i);
-                  // fetchComments();
-
-                  await insertRouteLog(r, i);
-                }}
-                style={{
-                  marginTop: 6,
-                  width: "100%",
-                  padding: 8,
-                  borderRadius: 6,
-                  border: "1px solid #e5e7eb",
-                  background: i === activeRoute ? "#eef2ff" : "#fff",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  fontSize: 13,
-                  color: "black",
-                }}
-              >
-                <div>
-                  <strong style={{ color: "black" }}>
-                    Rute-{i + 1} {" | "} 📏 {formatDistance(r.distance)} {" | "}
-                    ⏱ {formatDuration(r.duration)}
-                  </strong>
-                </div>
-                <div style={{ color: "black" }}></div>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Weather Info Panel */}
       {/* Weather Panel */}
       {weather && (
-        <div className="absolute top-54 right-6 z-20 w-72 backdrop-blur-lg bg-white/80 border border-white/40 rounded-2xl shadow-xl p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-800">
-                Perkiraan Cuaca
-              </h2>
-              <p className="text-sm text-gray-500">{weather.name}</p>
+        <>
+          {/* ===== Mobile: ICON BAR tanpa teks ===== */}
+          <div
+            className="
+    md:hidden
+    absolute
+    z-30
+    flex flex-col gap-2 
+    right-3         /* = 12px */
+    top-[170px]     /* custom exact pixel */
+    p-3             /* = 12px */      /* match width: 300 */
+    rounded-lg      /* ~ borderRadius: 8px */
+    shadow-[0_2px_8px_rgba(0,0,0,0.15)]
+    bg-transparent
+  "
+          >
+            {/* Icon kondisi cuaca */}
+            <div
+              className="
+            w-11 h-11 rounded-full
+            bg-white/80 backdrop-blur border border-white/40 shadow
+            flex items-center justify-center
+            text-xl
+          "
+              title={weather.weather[0].description}
+              aria-label={`Kondisi: ${weather.weather[0].description}`}
+            >
+              {conditionIcon}
             </div>
-            <img
-              src={`https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`}
-              alt="icon"
-              className="w-14 h-14"
-            />
+
+            {/* Temperatur */}
+            <div
+              className="
+            w-11 h-11 rounded-full
+            bg-white/80 backdrop-blur border border-white/40 shadow
+            flex items-center justify-center
+            text-[11px] font-semibold text-gray-800
+          "
+              title={`${tempC}°C`}
+              aria-label={`Temperatur ${tempC} derajat Celsius`}
+            >
+              <span className="text-base mr-[2px]">🌡️</span>
+              {tempC}°C
+            </div>
+
+            {/* Kelembaban */}
+            <div
+              className="
+            w-11 h-11 rounded-full
+            bg-white/80 backdrop-blur border border-white/40 shadow
+            flex items-center justify-center
+            text-[11px] font-semibold text-gray-800
+          "
+              title={`${humidity}%`}
+              aria-label={`Kelembaban ${humidity} persen`}
+            >
+              <span className="text-base mr-[2px]">💧</span>
+              {humidity}%
+            </div>
+
+            {/* Kecepatan angin */}
+            <div
+              className="
+            w-11 h-11 rounded-full
+             flex-col
+            bg-white/80 backdrop-blur border border-white/40 shadow
+            flex items-center justify-center
+            text-[10px] font-semibold text-gray-800
+          "
+              title={`${windKm} km/j`}
+              aria-label={`Angin ${windKm} kilometer per jam`}
+            >
+              <span className="text-base mr-[2px]">🌬️</span>
+              {windKm}km/j
+              {/* <span className="text-[9px] ml-[2px]">km/j</span> */}
+            </div>
           </div>
 
-          <div className="mt-4 space-y-3 text-gray-700">
-            <div className="flex justify-between">
-              <span>🌥 Kondisi</span>
-              <span className="font-semibold capitalize">
-                {weather.weather[0].description}
-              </span>
+          {/* ===== Desktop/Tablet: kartu penuh seperti sebelumnya ===== */}
+          <div className="hidden md:block absolute top-54 right-6 z-20 w-72 backdrop-blur-lg bg-white/80 border border-white/40 rounded-2xl shadow-xl p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Perkiraan Cuaca
+                </h2>
+                <p className="text-sm text-gray-500">{weather.name}</p>
+              </div>
+              <img
+                src={`https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`}
+                alt="icon"
+                className="w-14 h-14"
+              />
             </div>
 
-            <div className="flex justify-between">
-              <span>🌡 Temperatur</span>
-              <span className="font-semibold">
-                {Math.round(weather.main.temp)}°C
-              </span>
-            </div>
+            <div className="mt-4 space-y-3 text-gray-700">
+              <div className="flex justify-between">
+                <span>🌥 Kondisi</span>
+                <span className="font-semibold capitalize">
+                  {weather.weather[0].description}
+                </span>
+              </div>
 
-            <div className="flex justify-between">
-              <span>💧 Kelembaban</span>
-              <span className="font-semibold">{weather.main.humidity}%</span>
-            </div>
+              <div className="flex justify-between">
+                <span>🌡 Temperatur</span>
+                <span className="font-semibold">{tempC}°C</span>
+              </div>
 
-            <div className="flex justify-between">
-              <span>🌬 Kecepatan Angin</span>
-              <span className="font-semibold">{weather.wind.speed} m/s</span>
+              <div className="flex justify-between">
+                <span>💧 Kelembaban</span>
+                <span className="font-semibold">{humidity}%</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span>🌬 Kecepatan Angin</span>
+                <span className="font-semibold">{windKm} km/j</span>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       <GoogleMap

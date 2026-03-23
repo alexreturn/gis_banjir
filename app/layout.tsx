@@ -50,7 +50,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {/* Elemen ini tidak harus terlihat; bisa kamu sembunyikan */}
-        <div id="google_translate_element" />
+        <div id="google_translate_element" className="hidden" />
 
         {children}
       </body>

@@ -16,7 +16,85 @@ export default function Header() {
     else setLanguage("ID");
   }, []);
 
+  // Set the cookie for Google translate
+  function setGoogTransCookie(from: string, to: string) {
+    const path = "/";
+    const maxAgeDays = 365;
+    const maxAge = maxAgeDays * 24 * 60 * 60;
+    // Use domain only in production; omit for localhost
+    const isLocalhost =
+      location.hostname === "localhost" ||
+      /^\d+\.\d+\.\d+\.\d+$/.test(location.hostname);
+    const domainStr = isLocalhost
+      ? ""
+      : `; domain=${location.hostname.replace(/^www\./, ".")}`;
+
+    document.cookie = `googtrans=/${from}/${to}; path=${path}; max-age=${maxAge}${domainStr}`;
+    document.cookie = `googtrans=/${from}/${to}; path=${path}${domainStr}`; // some builds check duplicates
+  }
+
+  // Tear down and recreate the TranslateElement (safest)
+  function reinitTranslateElement() {
+    // Remove existing injected frames/menus to avoid stale state
+    document
+      .querySelectorAll(
+        "iframe.goog-te-menu-frame, iframe.goog-te-banner-frame",
+      )
+      .forEach((el) => el.remove());
+    document
+      .querySelectorAll(".goog-te-menu-frame, .goog-te-banner-frame")
+      .forEach((el) => el.remove());
+    document
+      .querySelectorAll(".skiptranslate")
+      .forEach((el) => el.classList.remove("skiptranslate"));
+
+    // If you attached the widget to a specific container, clear it
+    const container = document.getElementById("google_translate_element");
+    if (container) container.innerHTML = "";
+
+    // Recreate the element (requires the script to have been loaded with cb=googleTranslateElementInit)
+    if ((window as any).google?.translate?.TranslateElement) {
+      new (window as any).google.translate.TranslateElement(
+        {
+          pageLanguage: "auto", // or "id" if your source is fixed
+          autoDisplay: false,
+          includedLanguages: "", // or a CSV like "en,id,fr"
+          layout: (window as any).google.translate.TranslateElement.InlineLayout
+            .SIMPLE,
+        },
+        "google_translate_element",
+      );
+    }
+  }
+
   const handleChange = (val: "ID" | "EN") => {
+    setLanguage(val);
+    const code = val === "EN" ? "en" : "id";
+    setGoogleTranslateLanguage(code);
+
+    // 1) set cookie so the widget knows which target language to use
+    //    Use 'auto' as from-language unless you know the exact source
+    setGoogTransCookie("auto", code);
+
+    // 2) If the widget is already available, re-init it; otherwise wait until it loads
+    if ((window as any).google?.translate?.TranslateElement) {
+      reinitTranslateElement();
+    } else {
+      // If script not yet ready, poll a bit (or attach to the global init callback)
+      const t0 = Date.now();
+      const timer = setInterval(() => {
+        if ((window as any).google?.translate?.TranslateElement) {
+          clearInterval(timer);
+          reinitTranslateElement();
+        } else if (Date.now() - t0 > 4000) {
+          clearInterval(timer);
+          // As a last resort, you could fall back to reload — but usually not needed
+          // window.location.reload();
+        }
+      }, 150);
+    }
+  };
+  const handleChange2 = (val: "ID" | "EN") => {
     setLanguage(val);
     const code = val === "EN" ? "en" : "id";
     setGoogleTranslateLanguage(code);
@@ -82,7 +160,7 @@ export default function Header() {
             onChange={(e) => handleChange(e.target.value as "ID" | "EN")}
             className="bg-white text-blue-600 rounded-lg px-3 py-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-300"
           >
-            <option value="ID">Bahasa Indonesia</option>
+            <option value="ID">Indonesia</option>
             <option value="EN">English</option>
           </select>
         </nav>

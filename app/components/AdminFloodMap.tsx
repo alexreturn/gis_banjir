@@ -54,6 +54,8 @@ export default function AdminFloodMap() {
 
   const [kondisiJalan, setKondisiJalan] = useState(0); // 0=Baik, 1=Sedang, 2=Rusak
 
+  const [isPanelOpen, setIsPanelOpen] = useState(true);
+
   const fetchFloods = () => {
     fetch("/api/flood-areas")
       .then((res) => res.json())
@@ -328,6 +330,7 @@ export default function AdminFloodMap() {
         {activeMenu === "dashboard" && (
           <>
             {/* Panel Add Data */}
+
             <div
               style={{
                 position: "absolute",
@@ -341,83 +344,128 @@ export default function AdminFloodMap() {
                 width: 280,
               }}
             >
-              <h4 style={{ color: "black" }}>Tambah Data Banjir</h4>{" "}
-              <input
-                type="text"
-                placeholder="Nama lokasi"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+              {/* Header kecil: judul + tombol hide/show */}
+              <div
                 style={{
-                  width: "100%",
-                  marginTop: 6,
-                  padding: 6,
-                  color: "black",
-                }}
-              />{" "}
-              <label style={{ marginTop: 6, display: "block", color: "black" }}>
-                {" "}
-                Kedalaman Banjir : {kedalaman}
-                {" cm"}
-              </label>{" "}
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={kedalaman}
-                onChange={(e) => setKedalaman(Number(e.target.value))}
-                style={{ width: "100%", color: "black" }}
-              />{" "}
-              <label style={{ marginTop: 6, display: "block", color: "black" }}>
-                {" "}
-                Radius (meter): {radius}{" "}
-              </label>{" "}
-              <input
-                type="range"
-                min={50}
-                max={1000}
-                value={radius}
-                onChange={(e) => setRadius(Number(e.target.value))}
-                style={{ width: "100%", color: "black" }}
-              />{" "}
-              {/* ▼ Dropdown Kondisi Jalan */}
-              <label
-                style={{ marginTop: 10, display: "block", color: "black" }}
-              >
-                Kondisi Jalan
-              </label>
-              <select
-                value={kondisiJalan}
-                onChange={(e) => setKondisiJalan(Number(e.target.value))}
-                style={{
-                  width: "100%",
-                  marginTop: 6,
-                  padding: 8,
-                  color: "black",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 6,
-                  background: "white",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  marginBottom: 6,
                 }}
               >
-                <option value={0}>0 - Baik</option>
-                <option value={1}>1 - Sedang</option>
-                <option value={2}>2 - Rusak</option>
-              </select>
-              <button
-                onClick={handleSave}
-                style={{
-                  marginTop: 10,
-                  width: "100%",
-                  padding: 8,
-                  background: "#2563eb",
-                  color: "white",
-                  borderRadius: 6,
-                  border: "none",
-                  cursor: "pointer",
-                }}
+                <h4 style={{ color: "black", margin: 0 }}>
+                  Tambah Data Banjir
+                </h4>
+
+                <button
+                  onClick={() => setIsPanelOpen((v) => !v)}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 6,
+                    border: "1px solid #e5e7eb",
+                    background: isPanelOpen ? "#f3f4f6" : "#2563eb",
+                    color: isPanelOpen ? "#111827" : "white",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                  aria-expanded={isPanelOpen}
+                  aria-controls="form-tambah-banjir"
+                  title={isPanelOpen ? "Sembunyikan panel" : "Tampilkan panel"}
+                >
+                  {isPanelOpen ? "Sembunyikan" : "Tampilkan"}
+                </button>
+              </div>
+
+              {/* Isi form: dibungkus dan di-hide saat isPanelOpen = false */}
+              <div
+                id="form-tambah-banjir"
+                style={{ display: isPanelOpen ? "block" : "none" }}
               >
-                {" "}
-                Simpan{" "}
-              </button>
+                <input
+                  type="text"
+                  placeholder="Nama lokasi"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  style={{
+                    width: "100%",
+                    marginTop: 6,
+                    padding: 6,
+                    color: "black",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 6,
+                  }}
+                />
+
+                <label
+                  style={{ marginTop: 6, display: "block", color: "black" }}
+                >
+                  Kedalaman Banjir : {kedalaman} cm
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={kedalaman}
+                  onChange={(e) => setKedalaman(Number(e.target.value))}
+                  style={{ width: "100%", color: "black" }}
+                />
+
+                <label
+                  style={{ marginTop: 6, display: "block", color: "black" }}
+                >
+                  Radius (meter): {radius}
+                </label>
+                <input
+                  type="range"
+                  min={50}
+                  max={1000}
+                  value={radius}
+                  onChange={(e) => setRadius(Number(e.target.value))}
+                  style={{ width: "100%", color: "black" }}
+                />
+
+                {/* ▼ Dropdown Kondisi Jalan */}
+                <label
+                  style={{ marginTop: 10, display: "block", color: "black" }}
+                >
+                  Kondisi Jalan
+                </label>
+                <select
+                  value={kondisiJalan}
+                  onChange={(e) => setKondisiJalan(Number(e.target.value))}
+                  style={{
+                    width: "100%",
+                    marginTop: 6,
+                    padding: 8,
+                    color: "black",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 6,
+                    background: "white",
+                  }}
+                >
+                  <option value={0}>0 - Baik</option>
+                  <option value={1}>1 - Sedang</option>
+                  <option value={2}>2 - Rusak</option>
+                </select>
+
+                <button
+                  onClick={handleSave}
+                  style={{
+                    marginTop: 10,
+                    width: "100%",
+                    padding: 8,
+                    background: "#2563eb",
+                    color: "white",
+                    borderRadius: 6,
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  Simpan
+                </button>
+              </div>
             </div>
 
             {/* Map */}
@@ -453,7 +501,10 @@ export default function AdminFloodMap() {
                 ))}
                 {hoveredFlood && (
                   <InfoWindow
-                    position={{ lat: hoveredFlood.lat, lng: hoveredFlood.lng }}
+                    position={{
+                      lat: hoveredFlood.lat + 0.005,
+                      lng: hoveredFlood.lng,
+                    }}
                     options={{ disableAutoPan: true, headerDisabled: true }}
                   >
                     <div style={{ color: "black" }}>
