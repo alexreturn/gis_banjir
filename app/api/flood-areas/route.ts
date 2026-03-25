@@ -68,19 +68,12 @@ export async function DELETE(request: Request) {
 
 // PUT untuk edit
 export async function PUT(request: Request) {
+  console.log();
   try {
     const { id, name, lat, lng, radius, kedalaman, kondisi, status } =
       await request.json();
 
-    if (
-      !id ||
-      !name ||
-      !lat ||
-      !lng ||
-      !radius ||
-      !kondisi ||
-      kedalaman == null
-    ) {
+    if (!name || !lat || !lng || !radius || !kedalaman) {
       return NextResponse.json(
         { error: "Semua field wajib diisi" },
         { status: 400 },
