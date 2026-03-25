@@ -1,5 +1,8 @@
 import mysql from "mysql2/promise";
 
+const isLocalhost =
+  process.env.DB_HOST === "localhost" || process.env.DB_HOST === "127.0.0.1";
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -8,10 +11,14 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
-  ssl: {
-    minVersion: "TLSv1.2",
-    rejectUnauthorized: false,
-  },
+  ...(isLocalhost
+    ? {} // tanpa SSL
+    : {
+        ssl: {
+          minVersion: "TLSv1.2",
+          rejectUnauthorized: false,
+        },
+      }),
 });
 
 export default pool;
