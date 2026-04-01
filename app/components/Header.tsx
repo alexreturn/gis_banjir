@@ -145,6 +145,12 @@ export default function Header() {
           >
             Data
           </Link>
+          <Link
+            href="/information  "
+            className="px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            Informasi
+          </Link>
 
           <Link
             href="/about"

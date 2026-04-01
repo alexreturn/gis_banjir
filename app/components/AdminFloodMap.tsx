@@ -11,6 +11,7 @@ import FloodDataList from "./FloodDataList";
 import { useRouter } from "next/navigation";
 
 import Swal from "sweetalert2";
+import AdminNewsPage from "./adminNews";
 export const dynamic = "force-dynamic";
 
 type LatLng = { lat: number; lng: number };
@@ -313,6 +314,19 @@ export default function AdminFloodMap() {
             }}
           >
             Data
+          </button>
+          <button
+            onClick={() => setActiveMenu("news")}
+            style={{
+              background: activeMenu === "news" ? "#1d4ed8" : "transparent",
+              color: "white",
+              border: "none",
+              padding: "6px 12px",
+              borderRadius: 4,
+              cursor: "pointer",
+            }}
+          >
+            Informasi
           </button>
         </div>
       </div>
@@ -636,6 +650,7 @@ export default function AdminFloodMap() {
         )}
 
         {activeMenu === "data" && <FloodDataList />}
+        {activeMenu === "news" && <AdminNewsPage />}
       </div>
     </div>
   );
