@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "../components/Header";
 
-// Define the FloodArea type
 type FloodArea = {
   id: number;
   name: string;
@@ -12,7 +11,6 @@ type FloodArea = {
   lng: number;
   radius: number;
 };
-// Removed unused imports
 
 function FloodDataList() {
   const [floods, setFloods] = useState<FloodArea[]>([]);
@@ -30,24 +28,17 @@ function FloodDataList() {
   }, []);
 
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "100vh",
-        position: "relative",
-        color: "white",
-        backgroundColor: "white",
-      }}
-    >
+    <div className="w-full min-h-screen bg-gray-100 text-gray-900">
       <Header />
-      {/* Sidebar untuk rute */}
-      <div>
-        <h3 className="text-2xl font-bold mb-4">Data Banjir</h3>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-separate border-spacing-y-2">
+      <div className="p-6 max-w-6xl mx-auto">
+        <h3 className="text-2xl font-bold mb-6">Data Banjir</h3>
+
+        {/* TABLE WRAPPER */}
+        <div className="overflow-x-auto bg-white p-4 rounded-xl shadow">
+          <table className="min-w-full border-collapse">
             <thead>
-              <tr className="text-left text-sm uppercase text-gray-500">
+              <tr className="text-left text-sm uppercase text-gray-500 border-b">
                 <th className="px-4 py-2">Nama</th>
                 <th className="px-4 py-2">Latitude</th>
                 <th className="px-4 py-2">Longitude</th>
@@ -60,13 +51,13 @@ function FloodDataList() {
               {floods.map((f) => (
                 <tr
                   key={f.id}
-                  className="bg-white shadow-sm rounded-xl hover:shadow-md transition"
+                  className="border-b hover:bg-gray-50 transition"
                 >
                   {/* Nama */}
-                  <td className="px-4 py-3 text-gray-700 font-medium">
+                  <td className="px-4 py-3 font-medium">
                     {editing?.id === f.id ? (
                       <input
-                        className="border rounded-lg px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+                        className="border rounded-lg px-2 py-1 w-full"
                         value={editing.name}
                         onChange={(e) =>
                           setEditing({ ...editing, name: e.target.value })
@@ -78,11 +69,11 @@ function FloodDataList() {
                   </td>
 
                   {/* Latitude */}
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3">
                     {editing?.id === f.id ? (
                       <input
                         type="number"
-                        className="border rounded-lg px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+                        className="border rounded-lg px-2 py-1 w-full"
                         value={editing.lat}
                         onChange={(e) =>
                           setEditing({
@@ -97,11 +88,11 @@ function FloodDataList() {
                   </td>
 
                   {/* Longitude */}
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3">
                     {editing?.id === f.id ? (
                       <input
                         type="number"
-                        className="border rounded-lg px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+                        className="border rounded-lg px-2 py-1 w-full"
                         value={editing.lng}
                         onChange={(e) =>
                           setEditing({
@@ -116,11 +107,11 @@ function FloodDataList() {
                   </td>
 
                   {/* Radius */}
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3">
                     {editing?.id === f.id ? (
                       <input
                         type="number"
-                        className="border rounded-lg px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+                        className="border rounded-lg px-2 py-1 w-full"
                         value={editing.radius}
                         onChange={(e) =>
                           setEditing({
@@ -135,12 +126,13 @@ function FloodDataList() {
                       </span>
                     )}
                   </td>
+
                   {/* Kedalaman */}
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3">
                     {editing?.id === f.id ? (
                       <input
                         type="number"
-                        className="border rounded-lg px-2 py-1 w-full focus:ring-2 focus:ring-blue-400 outline-none"
+                        className="border rounded-lg px-2 py-1 w-full"
                         value={editing.kedalaman}
                         onChange={(e) =>
                           setEditing({
@@ -164,4 +156,5 @@ function FloodDataList() {
     </div>
   );
 }
+
 export default FloodDataList;

@@ -9,15 +9,16 @@ export async function GET() {
     const [rows] = await db.execute(
       `
       SELECT
-        tb_news.id,
-        tb_news.title,
-        tb_news.content,
-        tb_news.image,
-        tb_news.created_at,
-        tb_admin.nama AS author
-      FROM tb_news
-      JOIN tb_admin ON tb_news.admin_id = tb_admin.id
-      ORDER BY tb_news.created_at DESC
+        a.id,
+        MAX(a.title) AS title,
+        MAX(a.content) AS content,
+        MAX(a.image) AS image,
+        MAX(a.created_at) AS created_at,
+        MAX(b.nama) AS author
+      FROM tb_news a
+      JOIN tb_admin b ON a.admin_id = b.id
+      GROUP BY a.id
+      ORDER BY created_at DESC;
     `,
     );
     return NextResponse.json(rows);
